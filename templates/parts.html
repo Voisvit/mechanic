@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Загальний перелік запчастин</h1>
+        <p class="text-secondary mb-0">Агрегований перелік запчастин та агрегатів на основі прив’язок до обладнання.</p>
+    </div>
+    <form method="get" class="d-flex flex-column flex-md-row gap-2">
+        <input
+            type="search"
+            name="q"
+            value="{{ search_query }}"
+            class="form-control"
+            placeholder="Пошук за назвою запчастини"
+        >
+        <select name="machine" class="form-select">
+            <option value="">Усе обладнання</option>
+            {% for machine in machines %}
+            <option value="{{ machine.pk }}" {% if selected_machine == machine.pk|stringformat:"s" %}selected{% endif %}>
+                {{ machine.name }} ({{ machine.inventory_number }})
+            </option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-dark">Фільтрувати</button>
+    </form>
+    <a href="{% url 'parts_print' %}?q={{ search_query }}{% if selected_machine %}&machine={{ selected_machine }}{% endif %}" class="btn btn-outline-dark" target="_blank">Друк</a>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>№</th>
+                    <th>Назва запчастини / агрегату</th>
+                    <th>Загальна кількість</th>
+                    <th>Одиниця виміру</th>
+                    <th>Де використовується</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in part_rows %}
+                <tr>
+                    <td>{{ row.index }}</td>
+                    <td class="fw-semibold">{{ row.part.name }}</td>
+                    <td>{{ row.total_quantity }}</td>
+                    <td>{{ row.part.unit }}</td>
+                    <td>
+                        {% for machine in row.machines %}
+                        <a href="{% url 'machine_specification' machine.pk %}" class="text-decoration-none">
+                            {{ machine.name }}
+                        </a>{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-secondary">
+                        Запчастини за вибраними фільтрами не знайдені.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

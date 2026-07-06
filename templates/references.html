@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Дійові особи</h1>
+        <p class="text-secondary mb-0">Перелік відповідальних працівників та виконавців для системи ТО.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'inactive_persons' %}" class="btn btn-outline-secondary">Неактивні особи{% if inactive_count %} ({{ inactive_count }}){% endif %}</a>
+        <a href="{% url 'person_create' %}" class="btn btn-success">Додати особу</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>ПІБ</th>
+                    <th>Посада</th>
+                    <th class="text-end">Дії</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for person in persons %}
+                <tr>
+                    <td class="fw-semibold">{{ person.full_name }}</td>
+                    <td>{{ person.get_position_display|default:"-" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'person_update' person.pk %}" class="btn btn-sm btn-outline-primary">Редагувати</a>
+                        <a href="{% url 'person_deactivate' person.pk %}" class="btn btn-sm btn-outline-danger">Деактивувати</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="3" class="text-center py-4 text-secondary">Особи ще не додані.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ document_title }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            color: #111;
+            margin: 0;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .document-header {
+            margin-bottom: 16px;
+        }
+
+        .document-title {
+            font-size: 22px;
+            margin: 0 0 8px 0;
+        }
+
+        .document-meta {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .print-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .print-table th,
+        .print-table td {
+            border: 1px solid #444;
+            padding: 4px 6px;
+            vertical-align: top;
+        }
+
+        .print-table th {
+            background: #efefef;
+            font-weight: 700;
+        }
+
+        .print-card {
+            border: 1px solid #444;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+        }
+
+        .print-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .schedule-cell-done {
+            background: #dcefe2;
+        }
+
+        .schedule-cell-overdue {
+            background: #f7dddd;
+        }
+
+        .signature-block {
+            margin-top: 28px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .signature-row {
+            display: grid;
+            grid-template-columns: 220px 1fr 160px;
+            align-items: end;
+            gap: 12px;
+        }
+
+        .signature-line {
+            border-bottom: 1px solid #111;
+            min-height: 20px;
+        }
+
+        .no-print {
+            margin-bottom: 16px;
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+    {% block extra_print_styles %}{% endblock %}
+</head>
+<body>
+    <div class="no-print">
+        <button onclick="window.print()">Ctrl+P / Друк</button>
+    </div>
+
+    <header class="document-header">
+        <h1 class="document-title">{{ document_title }}</h1>
+        <div class="document-meta">
+            <span>{{ system_name }}</span>
+            <span>Дата формування: {{ generated_at|date:"d.m.Y" }}</span>
+        </div>
+    </header>
+
+    {% block print_content %}{% endblock %}
+
+    <section class="signature-block">
+        <div class="signature-row">
+            <span>Головний інженер</span>
+            <span class="signature-line"></span>
+            <span>Підпис</span>
+        </div>
+        <div class="signature-row">
+            <span>Начальник дільниці</span>
+            <span class="signature-line"></span>
+            <span>Підпис</span>
+        </div>
+        <div class="signature-row">
+            <span>Механік</span>
+            <span class="signature-line"></span>
+            <span>Підпис</span>
+        </div>
+    </section>
+</body>
+</html>

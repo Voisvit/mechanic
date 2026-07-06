@@ -1,0 +1,107 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Планові роботи</h1>
+        <p class="text-secondary mb-0">Список планів ТО з фільтрами за періодом, машиною та видом робіт.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'schedule' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-outline-secondary">До графіка</a>
+        <a href="{% url 'maintenance_plan_create' %}" class="btn btn-success">Створити планову роботу</a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-2">
+                <label class="form-label" for="id_month">Місяць</label>
+                <select id="id_month" name="month" class="form-select">
+                    {% for value, label in month_choices %}
+                    <option value="{{ value }}" {% if value == selected_month %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="id_year">Рік</label>
+                <select id="id_year" name="year" class="form-select">
+                    {% for value in year_choices %}
+                    <option value="{{ value }}" {% if value == selected_year %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="id_machine">Машина</label>
+                <select id="id_machine" name="machine" class="form-select">
+                    <option value="">Усі машини</option>
+                    {% for machine in machines %}
+                    <option value="{{ machine.pk }}" {% if selected_machine == machine.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ machine.name }} ({{ machine.inventory_number }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="id_maintenance_type">Вид ТО</label>
+                <select id="id_maintenance_type" name="maintenance_type" class="form-select">
+                    <option value="">Усі типи ТО</option>
+                    {% for item in maintenance_types %}
+                    <option value="{{ item.pk }}" {% if selected_type == item.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ item.code }} - {{ item.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 d-flex gap-2">
+                <button type="submit" class="btn btn-dark">Фільтрувати</button>
+                <a href="{% url 'maintenance_plan_list' %}" class="btn btn-outline-secondary">Скинути</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Машина</th>
+                    <th>Вид ТО / ремонту</th>
+                    <th>Планова дата</th>
+                    <th>Статус</th>
+                    <th>Примітка</th>
+                    <th class="text-end">Дії</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in plan_rows %}
+                <tr>
+                    <td>
+                        <a href="{% url 'machine_detail' row.plan.machine.pk %}" class="fw-semibold text-decoration-none">
+                            {{ row.plan.machine.name }}
+                        </a>
+                    </td>
+                    <td>{{ row.plan.maintenance_type.code }} - {{ row.plan.maintenance_type.name }}</td>
+                    <td>{{ row.plan.planned_date|date:"d.m.Y" }}</td>
+                    <td>{{ row.effective_status }}</td>
+                    <td>{{ row.plan.note|default:"-" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'maintenance_plan_update' row.plan.pk %}" class="btn btn-sm btn-outline-primary">Редагувати</a>
+                        {% if row.plan.status != "cancelled" %}
+                        <a href="{% url 'maintenance_plan_cancel' row.plan.pk %}" class="btn btn-sm btn-outline-danger">Скасувати</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-secondary">Планові роботи за вибраними фільтрами не знайдені.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

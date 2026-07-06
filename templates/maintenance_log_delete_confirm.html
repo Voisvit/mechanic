@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-danger">
+            <div class="card-body p-4">
+                <p class="text-secondary mb-1">{{ machine.name }}</p>
+                <h1 class="h3 mb-3">Видалити запис про виконані роботи</h1>
+                <p class="mb-4">
+                    Буде видалено запис від <strong>{{ maintenance_log.performed_date|date:"d.m.Y" }}</strong>
+                    для <strong>{{ maintenance_log.maintenance_type.name }}</strong>.
+                </p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Скасувати</a>
+                        <button type="submit" class="btn btn-danger">Зберегти</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

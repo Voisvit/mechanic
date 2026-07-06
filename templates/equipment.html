@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Обладнання</h1>
+        <p class="text-secondary mb-0">Список активних машин з переходом у справу обладнання та ТТХ.</p>
+    </div>
+    <div class="d-flex flex-column flex-md-row gap-2">
+        <form class="d-flex gap-2" method="get">
+            <input
+                type="search"
+                name="q"
+                value="{{ search_query }}"
+                class="form-control"
+                placeholder="Пошук за назвою або інвентарним номером"
+            >
+            <button type="submit" class="btn btn-dark">Знайти</button>
+        </form>
+        <a href="{% url 'inactive_equipment' %}" class="btn btn-outline-secondary">Неактивні машини{% if inactive_count %} ({{ inactive_count }}){% endif %}</a>
+        <a href="{% url 'machine_create' %}" class="btn btn-success">Додати машину</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Назва</th>
+                    <th>Інвентарний номер</th>
+                    <th>Марка</th>
+                    <th>Розташування</th>
+                    <th class="text-end">Дії</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for machine in machines %}
+                <tr>
+                    <td>
+                        <a href="{% url 'machine_detail' machine.pk %}" class="fw-semibold text-decoration-none">
+                            {{ machine.name }}
+                        </a>
+                    </td>
+                    <td>{{ machine.inventory_number }}</td>
+                    <td>{{ machine.brand|default:"-" }}</td>
+                    <td>{{ machine.location|default:"-" }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'machine_specification' machine.pk %}" class="btn btn-sm btn-outline-secondary">
+                            ТТХ машини
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-secondary">
+                        Активне обладнання не знайдено.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

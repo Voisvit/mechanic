@@ -1,0 +1,142 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<style>
+    .schedule-table {
+        min-width: 1400px;
+    }
+
+    .schedule-table th,
+    .schedule-table td {
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .schedule-day {
+        min-width: 46px;
+    }
+
+    .schedule-cell-content {
+        min-height: 48px;
+    }
+
+    .schedule-cell-done {
+        background-color: #d1e7dd;
+    }
+
+    .schedule-cell-overdue {
+        background-color: #f8d7da;
+    }
+</style>
+
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">
+            {% if home_mode %}
+            {{ schedule_heading }}
+            {% elif archive_mode %}
+            Архівний місячний графік
+            {% else %}
+            Місячний план-графік
+            {% endif %}
+        </h1>
+        <p class="text-secondary mb-0">
+            {% if home_mode %}
+            Поточний або вибраний місячний графік для активного обладнання дільниці.
+            {% else %}
+            План технічного обслуговування по активному обладнанню на {{ month_name }} {{ selected_year }}.
+            {% endif %}
+        </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <form method="get" class="d-flex flex-wrap gap-2">
+            <select name="machine" class="form-select">
+                <option value="">Усе обладнання</option>
+                {% for machine in machines_for_filter %}
+                <option value="{{ machine.pk }}" {% if selected_machine == machine.pk|stringformat:"s" %}selected{% endif %}>
+                    {{ machine.name }} ({{ machine.inventory_number }})
+                </option>
+                {% endfor %}
+            </select>
+            <select name="month" class="form-select">
+                {% for value, label in month_choices %}
+                <option value="{{ value }}" {% if value == selected_month %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="year" class="form-select">
+                {% for value in year_choices %}
+                <option value="{{ value }}" {% if value == selected_year %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-dark">Показати</button>
+        </form>
+        {% if archive_mode %}
+        <a href="{% url 'archive_year' archive_year %}" class="btn btn-outline-secondary">До місяців</a>
+        {% endif %}
+        <a href="{% url 'monthly_schedule_print' %}?year={{ selected_year }}&month={{ selected_month }}{% if selected_machine %}&machine={{ selected_machine }}{% endif %}" class="btn btn-outline-dark" target="_blank">Друк</a>
+        <a href="{% url 'yearly_schedule' %}?year={{ selected_year }}" class="btn btn-outline-secondary">Річний графік</a>
+        <a href="{% url 'archive_index' %}" class="btn btn-outline-secondary">Архів</a>
+        <a href="{% url 'parts' %}" class="btn btn-outline-secondary">Загальний перелік запчастин</a>
+        <a href="{% url 'maintenance_plan_list' %}" class="btn btn-outline-primary">Внесення похідних даних</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm schedule-table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>№</th>
+                        <th>Найменування обладнання</th>
+                        <th>Вид ремонту</th>
+                        {% for day in days %}
+                        <th class="text-center schedule-day">{{ day }}</th>
+                        {% endfor %}
+                        <th>Відмітки про виконання</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in schedule_rows %}
+                    <tr>
+                        <td>{{ row.index }}</td>
+                        <td>
+                            <a href="{% url 'machine_detail' row.machine.pk %}" class="fw-semibold text-decoration-none">
+                                {{ row.machine.name }}
+                            </a>
+                        </td>
+                        <td>{{ row.repair_types }}</td>
+                        {% for cell in row.cells %}
+                        <td
+                            class="text-center {{ cell.status_class }}"
+                            data-machine="{{ row.machine.inventory_number }}"
+                            data-day="{{ cell.day }}"
+                            title="{{ cell.title }}"
+                        >
+                            <div class="schedule-cell-content d-flex flex-column align-items-center justify-content-center gap-1">
+                                <span>{{ cell.codes }}</span>
+                                {% for action in cell.actions %}
+                                <a href="{{ action.url }}" class="btn btn-sm btn-outline-success py-0 px-1">
+                                    {{ action.label }}
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        {% endfor %}
+                        <td>{{ row.notes }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{{ days_in_month|add:4 }}" class="text-center py-4 text-secondary">
+                            Активне обладнання відсутнє.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

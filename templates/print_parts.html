@@ -1,0 +1,34 @@
+{% extends "print_layout.html" %}
+
+{% block print_content %}
+<table class="print-table">
+    <thead>
+        <tr>
+            <th>№</th>
+            <th>Назва запчастини / агрегату</th>
+            <th>Загальна кількість</th>
+            <th>Одиниця виміру</th>
+            <th>Де використовується</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in part_rows %}
+        <tr>
+            <td>{{ row.index }}</td>
+            <td>{{ row.part.name }}</td>
+            <td>{{ row.total_quantity }}</td>
+            <td>{{ row.part.unit }}</td>
+            <td>
+                {% for machine in row.machines %}
+                {{ machine.name }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="5">Запчастини за вибраними фільтрами не знайдені.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

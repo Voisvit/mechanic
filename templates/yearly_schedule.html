@@ -1,0 +1,105 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<style>
+    .yearly-schedule-table {
+        min-width: 1600px;
+    }
+
+    .yearly-schedule-table th,
+    .yearly-schedule-table td {
+        white-space: nowrap;
+        vertical-align: middle;
+    }
+
+    .yearly-month-cell {
+        min-width: 110px;
+    }
+
+    .yearly-month-link {
+        display: block;
+        color: inherit;
+        text-decoration: none;
+        min-height: 42px;
+    }
+
+    .yearly-month-link:hover {
+        text-decoration: underline;
+    }
+
+    .schedule-cell-done {
+        background-color: #d1e7dd;
+    }
+
+    .schedule-cell-overdue {
+        background-color: #f8d7da;
+    }
+</style>
+
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Річний графік ППР</h1>
+        <p class="text-secondary mb-0">Планово-попереджувальний ремонт по активному обладнанню за {{ selected_year }} рік.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <form method="get" class="d-flex gap-2">
+            <select name="year" class="form-select">
+                {% for value in year_choices %}
+                <option value="{{ value }}" {% if value == selected_year %}selected{% endif %}>{{ value }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-dark">Показати</button>
+        </form>
+        <a href="{% url 'yearly_schedule_print' %}?year={{ selected_year }}" class="btn btn-outline-dark" target="_blank">Друк</a>
+        <a href="{% url 'schedule' %}?year={{ selected_year }}&month=1" class="btn btn-outline-secondary">Місячний графік</a>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm yearly-schedule-table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>№</th>
+                        <th>Найменування обладнання</th>
+                        {% for month_number, month_label in month_choices_uk %}
+                        <th class="yearly-month-cell">{{ month_label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in yearly_rows %}
+                    <tr>
+                        <td>{{ row.index }}</td>
+                        <td>
+                            <a href="{% url 'machine_detail' row.machine.pk %}" class="fw-semibold text-decoration-none">
+                                {{ row.machine.name }}
+                            </a>
+                        </td>
+                        {% for month in row.months %}
+                        <td
+                            class="{{ month.status_class }}"
+                            data-machine="{{ row.machine.inventory_number }}"
+                            data-month="{{ month.number }}"
+                            title="{{ month.title }}"
+                        >
+                            <a href="{{ month.url }}" class="yearly-month-link">
+                                {{ month.codes|default:"" }}
+                            </a>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="14" class="text-center py-4 text-secondary">Активне обладнання відсутнє.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

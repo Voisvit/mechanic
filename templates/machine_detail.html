@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+        <p class="text-secondary mb-1">Справа машини</p>
+        <h1 class="h2 mb-0">{{ machine.name }}</h1>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
+        <a href="{% url 'machine_detail_print' machine.pk %}" class="btn btn-outline-dark" target="_blank">Друк</a>
+        <a href="{% url 'machine_update' machine.pk %}" class="btn btn-outline-primary">Редагувати</a>
+        <a href="{% url 'machine_specification' machine.pk %}" class="btn btn-dark">ТТХ машини</a>
+        <a href="{% url 'machine_deactivate' machine.pk %}" class="btn btn-outline-danger">Деактивувати</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Основні дані</h2>
+                <dl class="row mb-0">
+                    <dt class="col-sm-5">Назва</dt>
+                    <dd class="col-sm-7">{{ machine.name }}</dd>
+                    <dt class="col-sm-5">Інв. номер</dt>
+                    <dd class="col-sm-7">{{ machine.inventory_number }}</dd>
+                    <dt class="col-sm-5">Марка</dt>
+                    <dd class="col-sm-7">{{ machine.brand|default:"-" }}</dd>
+                    <dt class="col-sm-5">Розташування</dt>
+                    <dd class="col-sm-7">{{ machine.location|default:"-" }}</dd>
+                    <dt class="col-sm-5">Опис</dt>
+                    <dd class="col-sm-7">{{ machine.description|default:"-" }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                    <h2 class="h5 mb-0">Історія виконаних робіт</h2>
+                    <a href="{% url 'maintenance_log_create' machine.pk %}" class="btn btn-sm btn-success">
+                        Додати запис про виконані роботи
+                    </a>
+                </div>
+                {% if maintenance_logs %}
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип ТО</th>
+                                <th>Опис робіт</th>
+                                <th>Відповідальний</th>
+                                <th>Виконавець</th>
+                                <th class="text-end">Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in maintenance_logs %}
+                            <tr>
+                                <td>{{ log.performed_date|date:"d.m.Y" }}</td>
+                                <td>{{ log.maintenance_type.name }}</td>
+                                <td>{{ log.work_description }}</td>
+                                <td>{{ log.responsible_person.full_name }}</td>
+                                <td>{{ log.executor.full_name }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'maintenance_log_update' machine.pk log.pk %}" class="btn btn-sm btn-outline-primary">
+                                        Редагувати
+                                    </a>
+                                    <a href="{% url 'maintenance_log_delete' machine.pk log.pk %}" class="btn btn-sm btn-outline-danger">
+                                        Видалити
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-secondary mb-0">Для цієї машини ще немає записів про виконані роботи.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

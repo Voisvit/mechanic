@@ -1,0 +1,50 @@
+{% extends "print_layout.html" %}
+
+{% block extra_print_styles %}
+<style>
+    @page {
+        size: A4 landscape;
+    }
+
+    .yearly-table {
+        table-layout: fixed;
+        font-size: 11px;
+    }
+
+    .yearly-table th,
+    .yearly-table td {
+        white-space: normal;
+        text-align: center;
+    }
+
+    .machine-col {
+        width: 190px;
+        text-align: left !important;
+    }
+</style>
+{% endblock %}
+
+{% block print_content %}
+<table class="print-table yearly-table">
+    <thead>
+        <tr>
+            <th>№</th>
+            <th class="machine-col">Найменування обладнання</th>
+            {% for month_number, month_label in month_choices_uk %}
+            <th>{{ month_label }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in yearly_rows %}
+        <tr>
+            <td>{{ row.index }}</td>
+            <td class="machine-col">{{ row.machine.name }}</td>
+            {% for month in row.months %}
+            <td class="{{ month.status_class }}">{{ month.codes }}</td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

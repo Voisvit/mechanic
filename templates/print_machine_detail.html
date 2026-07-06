@@ -1,0 +1,48 @@
+{% extends "print_layout.html" %}
+
+{% block print_content %}
+<div class="print-grid">
+    <section class="print-card">
+        <h2>Основні дані</h2>
+        <table class="print-table">
+            <tbody>
+                <tr><th>Назва</th><td>{{ machine.name }}</td></tr>
+                <tr><th>Інвентарний номер</th><td>{{ machine.inventory_number }}</td></tr>
+                <tr><th>Марка</th><td>{{ machine.brand|default:"-" }}</td></tr>
+                <tr><th>Розташування</th><td>{{ machine.location|default:"-" }}</td></tr>
+                <tr><th>Опис</th><td>{{ machine.description|default:"-" }}</td></tr>
+            </tbody>
+        </table>
+    </section>
+</div>
+
+<section class="print-card">
+    <h2>Історія виконаних робіт</h2>
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Тип ТО</th>
+                <th>Опис робіт</th>
+                <th>Відповідальний</th>
+                <th>Виконавець</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in maintenance_logs %}
+            <tr>
+                <td>{{ log.performed_date|date:"d.m.Y" }}</td>
+                <td>{{ log.maintenance_type.name }}</td>
+                <td>{{ log.work_description }}</td>
+                <td>{{ log.responsible_person.full_name }}</td>
+                <td>{{ log.executor.full_name }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5">Записи про виконані роботи відсутні.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

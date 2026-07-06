@@ -1,0 +1,65 @@
+{% extends "print_layout.html" %}
+
+{% block extra_print_styles %}
+<style>
+    @page {
+        size: A4 landscape;
+    }
+
+    .schedule-table {
+        table-layout: fixed;
+        font-size: 10px;
+    }
+
+    .schedule-table th,
+    .schedule-table td {
+        white-space: normal;
+        text-align: center;
+    }
+
+    .machine-col {
+        width: 180px;
+        text-align: left !important;
+    }
+
+    .repair-col {
+        width: 100px;
+    }
+
+    .notes-col {
+        width: 120px;
+    }
+    .day-col {
+        width: 22px;
+    }
+</style>
+{% endblock %}
+
+{% block print_content %}
+<table class="print-table schedule-table">
+    <thead>
+        <tr>
+            <th>№</th>
+            <th class="machine-col">Найменування обладнання</th>
+            <th class="repair-col">Вид ремонту</th>
+            {% for day in days %}
+            <th class="day-col">{{ day }}</th>
+            {% endfor %}
+            <th class="notes-col">Відмітки про виконання</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in schedule_rows %}
+        <tr>
+            <td>{{ row.index }}</td>
+            <td class="machine-col">{{ row.machine.name }}</td>
+            <td>{{ row.repair_types }}</td>
+            {% for cell in row.cells %}
+            <td class="{{ cell.status_class }}">{{ cell.codes }}</td>
+            {% endfor %}
+            <td>{{ row.notes }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
