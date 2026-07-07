@@ -15,6 +15,18 @@
                     <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
                 </div>
 
+                <div class="alert alert-light border mb-4">
+                    Тут можна прив'язати до машини лише вже створену запчастину.
+                    Якщо потрібної запчастини немає у списку, спочатку створіть її.
+                    <a href="{{ create_part_url }}" class="alert-link">Створити запчастину</a>
+                </div>
+
+                {% if not available_parts %}
+                <div class="alert alert-warning mb-4">
+                    Для цієї машини немає доступних запчастин для прив'язки. Можливо, усі наявні запчастини вже додані.
+                </div>
+                {% endif %}
+
                 <form method="post" novalidate>
                     {% csrf_token %}
                     <div class="row g-3">
@@ -39,6 +51,7 @@
 
                     <div class="d-flex gap-2 mt-4">
                         <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Скасувати</a>
+                        <a href="{{ create_part_url }}" class="btn btn-outline-primary">Створити запчастину</a>
                         <button type="submit" class="btn btn-dark">Зберегти</button>
                     </div>
                 </form>

@@ -20,6 +20,9 @@
 
     .schedule-cell-content {
         min-height: 48px;
+        position: relative;
+        z-index: 2;
+        pointer-events: none;
     }
 
     .schedule-cell-done {
@@ -28,6 +31,25 @@
 
     .schedule-cell-overdue {
         background-color: #f8d7da;
+    }
+
+    .schedule-cell {
+        position: relative;
+        transition: background-color 0.2s ease;
+    }
+
+    .schedule-cell-active:hover {
+        background-color: #f8f9fa;
+    }
+
+    .schedule-cell-link {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+    }
+
+    .schedule-cell-content a {
+        pointer-events: auto;
     }
 </style>
 
@@ -110,11 +132,14 @@
                         <td>{{ row.repair_types }}</td>
                         {% for cell in row.cells %}
                         <td
-                            class="text-center {{ cell.status_class }}"
+                            class="text-center schedule-cell {% if cell.create_url %}schedule-cell-active{% endif %} {{ cell.status_class }}"
                             data-machine="{{ row.machine.inventory_number }}"
                             data-day="{{ cell.day }}"
                             title="{{ cell.title }}"
                         >
+                            {% if cell.create_url %}
+                            <a href="{{ cell.create_url }}" class="schedule-cell-link" aria-label="Запланувати роботу на {{ cell.day }} число для {{ row.machine.name }}"></a>
+                            {% endif %}
                             <div class="schedule-cell-content d-flex flex-column align-items-center justify-content-center gap-1">
                                 <span>{{ cell.codes }}</span>
                                 {% for action in cell.actions %}

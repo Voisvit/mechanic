@@ -30,6 +30,7 @@
             <thead class="table-light">
                 <tr>
                     <th>Назва</th>
+                    <th>Технологічний номер</th>
                     <th>Інвентарний номер</th>
                     <th>Марка</th>
                     <th>Розташування</th>
@@ -44,6 +45,7 @@
                             {{ machine.name }}
                         </a>
                     </td>
+                    <td>{{ machine.technological_number|default:"-" }}</td>
                     <td>{{ machine.inventory_number }}</td>
                     <td>{{ machine.brand|default:"-" }}</td>
                     <td>{{ machine.location|default:"-" }}</td>
@@ -55,7 +57,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-secondary">
+                    <td colspan="6" class="text-center py-4 text-secondary">
                         Активне обладнання не знайдено.
                     </td>
                 </tr>

@@ -15,8 +15,20 @@
                     <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
                 </div>
 
+                {% if existing_plans %}
+                <div class="alert alert-light border mb-4">
+                    <div class="fw-semibold mb-2">На цю дату вже заплановано:</div>
+                    <ul class="mb-0 ps-3">
+                        {% for plan in existing_plans %}
+                        <li>{{ plan.maintenance_type.code }} - {{ plan.maintenance_type.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
                 <form method="post" novalidate>
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
                     <div class="row g-3">
                         {% for field in form %}
                         <div class="{% if field.name == 'note' %}col-12{% else %}col-md-6{% endif %}">

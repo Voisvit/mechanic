@@ -25,6 +25,8 @@
                 <dl class="row mb-0">
                     <dt class="col-sm-5">Назва</dt>
                     <dd class="col-sm-7">{{ machine.name }}</dd>
+                    <dt class="col-sm-5">Технологічний номер</dt>
+                    <dd class="col-sm-7">{{ machine.technological_number|default:"-" }}</dd>
                     <dt class="col-sm-5">Інв. номер</dt>
                     <dd class="col-sm-7">{{ machine.inventory_number }}</dd>
                     <dt class="col-sm-5">Марка</dt>

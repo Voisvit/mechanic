@@ -7,6 +7,7 @@
         <table class="print-table">
             <tbody>
                 <tr><th>Назва</th><td>{{ machine.name }}</td></tr>
+                <tr><th>Технологічний номер</th><td>{{ machine.technological_number|default:"-" }}</td></tr>
                 <tr><th>Інвентарний номер</th><td>{{ machine.inventory_number }}</td></tr>
                 <tr><th>Марка</th><td>{{ machine.brand|default:"-" }}</td></tr>
                 <tr><th>Розташування</th><td>{{ machine.location|default:"-" }}</td></tr>

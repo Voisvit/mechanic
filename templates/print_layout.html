@@ -107,6 +107,7 @@
         <button onclick="window.print()">Ctrl+P / Друк</button>
     </div>
 
+    {% block print_header %}
     <header class="document-header">
         <h1 class="document-title">{{ document_title }}</h1>
         <div class="document-meta">
@@ -114,9 +115,11 @@
             <span>Дата формування: {{ generated_at|date:"d.m.Y" }}</span>
         </div>
     </header>
+    {% endblock %}
 
     {% block print_content %}{% endblock %}
 
+    {% block print_signatures %}
     <section class="signature-block">
         <div class="signature-row">
             <span>Головний інженер</span>
@@ -134,5 +137,6 @@
             <span>Підпис</span>
         </div>
     </section>
+    {% endblock %}
 </body>
 </html>

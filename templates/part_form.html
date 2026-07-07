@@ -4,12 +4,12 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-8">
+    <div class="col-lg-7">
         <div class="card shadow-sm">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div>
-                        <p class="text-secondary mb-1">Обладнання</p>
+                        <p class="text-secondary mb-1">Запчастини</p>
                         <h1 class="h3 mb-0">{{ form_title }}</h1>
                     </div>
                     <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
@@ -17,21 +17,12 @@
 
                 <form method="post" novalidate>
                     {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
                     <div class="row g-3">
                         {% for field in form %}
-                        <div class="{% if field.name == 'description' %}col-12{% elif field.name == 'is_active' %}col-12{% else %}col-md-6{% endif %}">
-                            {% if field.name == 'is_active' %}
-                            <div class="form-check mt-2">
-                                {{ field }}
-                                <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            </div>
-                            {% else %}
+                        <div class="col-12">
                             <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                             {{ field }}
-                            {% endif %}
-                            {% if field.help_text %}
-                            <div class="form-text">{{ field.help_text }}</div>
-                            {% endif %}
                             {% for error in field.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
@@ -48,10 +39,7 @@
                     {% endif %}
 
                     <div class="d-flex gap-2 mt-4">
-                        <a href="{{ back_url }}" class="btn btn-outline-secondary">Скасувати</a>
-                        {% if show_add_another %}
-                        <button type="submit" name="save_and_add" value="1" class="btn btn-outline-primary">Зберегти і додати ще</button>
-                        {% endif %}
+                        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Скасувати</a>
                         <button type="submit" class="btn btn-dark">Зберегти</button>
                     </div>
                 </form>

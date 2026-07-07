@@ -1,11 +1,13 @@
 import calendar
 from datetime import date
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 
 from .forms import (
@@ -14,9 +16,19 @@ from .forms import (
     MachineSpecForm,
     MaintenanceLogForm,
     MaintenancePlanForm,
+    PartForm,
     PersonForm,
 )
-from .models import Machine, MachinePart, MaintenanceLog, MaintenancePlan, MaintenanceType, Person
+from .models import (
+    ALLOWED_MAINTENANCE_TYPE_CODES,
+    Machine,
+    MachinePart,
+    MaintenanceLog,
+    MaintenancePlan,
+    MaintenanceType,
+    Part,
+    Person,
+)
 
 
 SYSTEM_NAME = "Журнал технічного обслуговування обладнання"
@@ -42,6 +54,13 @@ def build_print_context(document_title, **kwargs):
 def logout_view(request):
     logout(request)
     return redirect("login")
+
+
+def get_safe_next_url(request, fallback_url):
+    next_url = request.GET.get("next") or request.POST.get("next")
+    if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+        return next_url
+    return fallback_url
 
 
 def get_month_choices():
@@ -86,7 +105,15 @@ def get_effective_plan_status(plan, today):
     return plan.status
 
 
-def build_monthly_schedule_context(year, month, today, selected_machine="", include_inactive_with_activity=False):
+def build_monthly_schedule_context(
+    year,
+    month,
+    today,
+    selected_machine="",
+    include_inactive_with_activity=False,
+    route_name="home",
+    allow_cell_create=True,
+):
     days_in_month = calendar.monthrange(year, month)[1]
     start_date = date(year, month, 1)
     end_date = date(year, month, days_in_month)
@@ -129,6 +156,14 @@ def build_monthly_schedule_context(year, month, today, selected_machine="", incl
     for plan in plans:
         plans_by_machine_day.setdefault((plan.machine_id, plan.planned_date.day), []).append(plan)
 
+    schedule_url = ""
+    schedule_query = {}
+    if allow_cell_create:
+        schedule_url = reverse(route_name)
+        schedule_query = {"year": year, "month": month}
+        if selected_machine:
+            schedule_query["machine"] = selected_machine
+
     schedule_rows = []
     for index, machine in enumerate(machines, start=1):
         cells = []
@@ -141,6 +176,20 @@ def build_monthly_schedule_context(year, month, today, selected_machine="", incl
             codes = ", ".join(plan.maintenance_type.code for plan in day_plans)
             status_class = ""
             effective_statuses = [get_effective_plan_status(plan, today) for plan in day_plans]
+            planned_date = date(year, month, day)
+            create_url = ""
+            if allow_cell_create:
+                create_url = (
+                    reverse("maintenance_plan_create")
+                    + "?"
+                    + urlencode(
+                        {
+                            "machine": machine.pk,
+                            "planned_date": planned_date.isoformat(),
+                            "next": f"{schedule_url}?{urlencode(schedule_query)}",
+                        }
+                    )
+                )
 
             if any(status == MaintenancePlan.Status.OVERDUE for status in effective_statuses):
                 status_class = "schedule-cell-overdue"
@@ -163,6 +212,7 @@ def build_monthly_schedule_context(year, month, today, selected_machine="", incl
                         f"{plan.maintenance_type.code}: {dict(MaintenancePlan.Status.choices)[get_effective_plan_status(plan, today)]}"
                         for plan in day_plans
                     ),
+                    "create_url": create_url,
                     "actions": [
                         {
                             "label": "Відмітити виконання",
@@ -287,7 +337,7 @@ def home(request):
         "schedule.html",
         build_context(
             document_heading,
-            **build_monthly_schedule_context(year, month, today),
+            **build_monthly_schedule_context(year, month, today, route_name="home"),
             home_mode=True,
             schedule_heading=document_heading,
         ),
@@ -300,7 +350,9 @@ def equipment(request):
 
     if search_query:
         machines = machines.filter(
-            Q(name__icontains=search_query) | Q(inventory_number__icontains=search_query)
+            Q(name__icontains=search_query)
+            | Q(technological_number__icontains=search_query)
+            | Q(inventory_number__icontains=search_query)
         )
 
     machines = machines.order_by("name", "inventory_number")
@@ -323,7 +375,9 @@ def inactive_equipment(request):
 
     if search_query:
         machines = machines.filter(
-            Q(name__icontains=search_query) | Q(inventory_number__icontains=search_query)
+            Q(name__icontains=search_query)
+            | Q(technological_number__icontains=search_query)
+            | Q(inventory_number__icontains=search_query)
         )
 
     machines = machines.order_by("name", "inventory_number")
@@ -344,6 +398,9 @@ def machine_create(request):
         form = MachineForm(request.POST)
         if form.is_valid():
             machine = form.save()
+            if request.POST.get("save_and_add"):
+                messages.success(request, f"Машину «{machine.name}» збережено. Можна додати наступну.")
+                return redirect("machine_create")
             return redirect("machine_detail", pk=machine.pk)
     else:
         form = MachineForm(initial={"is_active": True})
@@ -357,6 +414,7 @@ def machine_create(request):
             form_title="Додати машину",
             back_url=reverse("equipment"),
             cancel_url=reverse("equipment"),
+            show_add_another=True,
         ),
     )
 
@@ -383,6 +441,7 @@ def machine_update(request, pk):
             form_title="Редагувати машину",
             back_url=detail_url,
             cancel_url=detail_url,
+            show_add_another=False,
         ),
     )
 
@@ -636,6 +695,8 @@ def machine_specification_edit(request, pk):
 
 def machine_part_create(request, pk):
     machine = get_object_or_404(Machine, pk=pk)
+    available_parts = Part.objects.exclude(machine_parts__machine=machine).order_by("name")
+    create_part_url = reverse("part_create") + f"?next={reverse('machine_part_create', kwargs={'pk': machine.pk})}"
 
     if request.method == "POST":
         form = MachinePartForm(request.POST, machine=machine)
@@ -652,12 +713,14 @@ def machine_part_create(request, pk):
         request,
         "machine_part_form.html",
         build_context(
-            "Додати запчастину до машини",
+            "Прив'язати запчастину до машини",
             machine=machine,
             form=form,
-            form_title="Додати запчастину до машини",
+            form_title="Прив'язати запчастину до машини",
             back_url=specification_url,
             cancel_url=specification_url,
+            available_parts=available_parts,
+            create_part_url=create_part_url,
         ),
     )
 
@@ -781,7 +844,14 @@ def archive_month(request, year, month):
         "schedule.html",
         build_context(
             f"Архів за {get_month_label_uk(month)} {year}",
-            **build_monthly_schedule_context(year, month, today, include_inactive_with_activity=True),
+            **build_monthly_schedule_context(
+                year,
+                month,
+                today,
+                include_inactive_with_activity=True,
+                route_name="archive_month",
+                allow_cell_create=False,
+            ),
             archive_mode=True,
             archive_year=year,
         ),
@@ -958,7 +1028,7 @@ def maintenance_plan_list(request):
         plans = plans.filter(maintenance_type_id=selected_type)
 
     machines = Machine.objects.filter(is_active=True).order_by("name", "inventory_number")
-    maintenance_types = MaintenanceType.objects.order_by("code", "name")
+    maintenance_types = MaintenanceType.objects.filter(code__in=ALLOWED_MAINTENANCE_TYPE_CODES).order_by("code", "name")
 
     plan_rows = [
         {
@@ -987,13 +1057,34 @@ def maintenance_plan_list(request):
 
 
 def maintenance_plan_create(request):
+    fallback_url = reverse("maintenance_plan_list")
+    next_url = get_safe_next_url(request, fallback_url)
+
     if request.method == "POST":
         form = MaintenancePlanForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect("maintenance_plan_list")
+            return redirect(next_url)
     else:
-        form = MaintenancePlanForm(initial={"status": MaintenancePlan.Status.PLANNED})
+        initial = {"status": MaintenancePlan.Status.PLANNED}
+        machine_id = request.GET.get("machine", "").strip()
+        planned_date = request.GET.get("planned_date", "").strip()
+        if machine_id:
+            initial["machine"] = machine_id
+        if planned_date:
+            initial["planned_date"] = planned_date
+        form = MaintenancePlanForm(initial=initial)
+
+    existing_plans = []
+    machine_for_day = form["machine"].value()
+    planned_date_for_day = form["planned_date"].value()
+    if machine_for_day and planned_date_for_day:
+        existing_plans = list(
+            MaintenancePlan.objects.filter(machine_id=machine_for_day, planned_date=planned_date_for_day)
+            .exclude(status=MaintenancePlan.Status.CANCELLED)
+            .select_related("maintenance_type")
+            .order_by("maintenance_type__code")
+        )
 
     return render(
         request,
@@ -1002,8 +1093,10 @@ def maintenance_plan_create(request):
             "Створити планову роботу",
             form=form,
             form_title="Створити планову роботу",
-            back_url=reverse("maintenance_plan_list"),
-            cancel_url=reverse("maintenance_plan_list"),
+            back_url=next_url,
+            cancel_url=next_url,
+            next_url=next_url,
+            existing_plans=existing_plans,
         ),
     )
 
@@ -1063,6 +1156,31 @@ def parts(request):
         build_context(
             "Запчастини",
             **build_parts_list_context(search_query, selected_machine),
+        ),
+    )
+
+
+def part_create(request):
+    next_url = request.GET.get("next") or request.POST.get("next") or reverse("parts")
+
+    if request.method == "POST":
+        form = PartForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect(next_url)
+    else:
+        form = PartForm()
+
+    return render(
+        request,
+        "part_form.html",
+        build_context(
+            "Створити запчастину",
+            form=form,
+            form_title="Створити запчастину",
+            back_url=next_url,
+            cancel_url=next_url,
+            next_url=next_url,
         ),
     )
 

@@ -11,7 +11,8 @@
     <div class="d-flex gap-2">
         <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
         <a href="{% url 'machine_specification_edit' machine.pk %}" class="btn btn-outline-primary">Редагувати ТТХ</a>
-        <a href="{% url 'machine_part_create' machine.pk %}" class="btn btn-success">Додати запчастину</a>
+        <a href="{% url 'machine_part_create' machine.pk %}" class="btn btn-success">Прив'язати запчастину</a>
+        <a href="{% url 'part_create' %}?next={% url 'machine_part_create' machine.pk %}" class="btn btn-outline-dark">Створити запчастину</a>
         <a href="{% url 'machine_detail' machine.pk %}" class="btn btn-dark">Справа машини</a>
     </div>
 </div>
@@ -22,6 +23,8 @@
             <div class="card-body">
                 <h2 class="h5 mb-3">Технічні характеристики</h2>
                 <dl class="row mb-0">
+                    <dt class="col-sm-5">Техн. номер</dt>
+                    <dd class="col-sm-7">{{ machine.technological_number|default:"-" }}</dd>
                     <dt class="col-sm-5">Інв. номер</dt>
                     <dd class="col-sm-7">{{ machine.inventory_number }}</dd>
                     <dt class="col-sm-5">Марка</dt>

@@ -26,7 +26,10 @@
         </select>
         <button type="submit" class="btn btn-dark">Фільтрувати</button>
     </form>
-    <a href="{% url 'parts_print' %}?q={{ search_query }}{% if selected_machine %}&machine={{ selected_machine }}{% endif %}" class="btn btn-outline-dark" target="_blank">Друк</a>
+    <div class="d-flex gap-2">
+        <a href="{% url 'part_create' %}" class="btn btn-success">Створити запчастину</a>
+        <a href="{% url 'parts_print' %}?q={{ search_query }}{% if selected_machine %}&machine={{ selected_machine }}{% endif %}" class="btn btn-outline-dark" target="_blank">Друк</a>
+    </div>
 </div>
 
 <div class="card shadow-sm">

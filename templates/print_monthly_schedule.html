@@ -4,6 +4,76 @@
 <style>
     @page {
         size: A4 landscape;
+        margin: 10mm 12mm;
+    }
+
+    body {
+        font-family: "Times New Roman", Times, serif;
+        font-size: 12px;
+    }
+
+    .monthly-print-header {
+        margin-bottom: 12px;
+    }
+
+    .approval-block {
+        width: 340px;
+        margin-left: auto;
+        text-align: center;
+        line-height: 1.2;
+        margin-bottom: 10px;
+    }
+
+    .approval-title {
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 15px;
+        margin-bottom: 4px;
+    }
+
+    .approval-role,
+    .approval-company {
+        font-size: 13px;
+    }
+
+    .approval-date {
+        margin: 4px 0;
+        font-size: 13px;
+    }
+
+    .approval-signature {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: end;
+        gap: 10px;
+    }
+
+    .approval-line {
+        border-bottom: 1px solid #111;
+        min-height: 16px;
+    }
+
+    .monthly-title {
+        text-align: center;
+        margin-bottom: 12px;
+        line-height: 1.25;
+    }
+
+    .monthly-title-main {
+        font-size: 18px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+    }
+
+    .monthly-title-sub {
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .monthly-title-date {
+        font-size: 16px;
+        font-weight: 700;
     }
 
     .schedule-table {
@@ -29,23 +99,75 @@
     .notes-col {
         width: 120px;
     }
+
     .day-col {
         width: 22px;
     }
+
+    .monthly-roles {
+        margin-top: 18px;
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .monthly-roles td {
+        padding: 5px 0;
+        vertical-align: bottom;
+    }
+
+    .monthly-roles .label-col {
+        width: 130px;
+    }
+
+    .monthly-roles .role-col {
+        width: 420px;
+    }
+
+    .monthly-roles .name-col {
+        width: 240px;
+        text-align: left;
+    }
 </style>
+{% endblock %}
+
+{% block print_header %}
+<header class="monthly-print-header">
+    <div class="approval-block">
+        <div class="approval-title">"ЗАТВЕРДЖУЮ"</div>
+        <div class="approval-role">Головний інженер</div>
+        <div class="approval-company">ТОВ "ФАЛЬКОН АГРО ГРУП"</div>
+        <div class="approval-date">"____" ______________ {{ selected_year }} р.</div>
+        <div class="approval-signature">
+            <span class="approval-line"></span>
+            <span class="approval-line"></span>
+        </div>
+    </div>
+
+    <div class="monthly-title">
+        <div class="monthly-title-main">ГРАФІК</div>
+        <div class="monthly-title-sub">
+            проведення планово-попереджувального ремонту та технічного обслуговування обладнання підготовчої дільниці №2
+        </div>
+        <div class="monthly-title-date">на {{ month_name|lower }} {{ selected_year }} р.</div>
+    </div>
+</header>
 {% endblock %}
 
 {% block print_content %}
 <table class="print-table schedule-table">
     <thead>
         <tr>
-            <th>№</th>
-            <th class="machine-col">Найменування обладнання</th>
-            <th class="repair-col">Вид ремонту</th>
+            <th rowspan="2">№</th>
+            <th rowspan="2" class="machine-col">Найменування обладнання</th>
+            <th rowspan="2" class="repair-col">Вид ремонту</th>
+            <th colspan="{{ days_in_month }}">Дні місяця</th>
+            <th rowspan="2" class="notes-col">Відмітки про виконання</th>
+        </tr>
+        <tr>
             {% for day in days %}
             <th class="day-col">{{ day }}</th>
             {% endfor %}
-            <th class="notes-col">Відмітки про виконання</th>
         </tr>
     </thead>
     <tbody>
@@ -60,6 +182,33 @@
             <td>{{ row.notes }}</td>
         </tr>
         {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+
+{% block print_signatures %}
+<table class="monthly-roles">
+    <tbody>
+        <tr>
+            <td class="label-col">Розробив:</td>
+            <td class="role-col">Механік підготовчої дільниці №2</td>
+            <td class="name-col">Валентин ПЛОДИСТИЙ</td>
+        </tr>
+        <tr>
+            <td class="label-col">Погоджено:</td>
+            <td class="role-col">Начальник підготовчої дільниці №2</td>
+            <td class="name-col">Анатолій ЯЩЕНКО</td>
+        </tr>
+        <tr>
+            <td class="label-col"></td>
+            <td class="role-col">Головний енергетик</td>
+            <td class="name-col">Руслан ГУЛЬКО</td>
+        </tr>
+        <tr>
+            <td class="label-col"></td>
+            <td class="role-col">Головний механік</td>
+            <td class="name-col">Юрій НЕСТЕРЕНКО</td>
+        </tr>
     </tbody>
 </table>
 {% endblock %}

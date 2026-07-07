@@ -1,6 +1,16 @@
 from django import forms
 
-from .models import Machine, MachinePart, MachineSpec, MaintenanceLog, MaintenancePlan, MaintenanceType, Person
+from .models import (
+    ALLOWED_MAINTENANCE_TYPE_CODES,
+    Machine,
+    MachinePart,
+    MachineSpec,
+    MaintenanceLog,
+    MaintenancePlan,
+    MaintenanceType,
+    Part,
+    Person,
+)
 
 
 class BootstrapMixin:
@@ -19,6 +29,7 @@ class MachineForm(BootstrapMixin, forms.ModelForm):
         model = Machine
         fields = [
             "name",
+            "technological_number",
             "inventory_number",
             "brand",
             "location",
@@ -73,6 +84,15 @@ class MachinePartForm(BootstrapMixin, forms.ModelForm):
         return cleaned_data
 
 
+class PartForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = Part
+        fields = ["name", "unit", "description"]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+        }
+
+
 class PersonForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Person
@@ -100,7 +120,9 @@ class MaintenanceLogForm(BootstrapMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["responsible_person"].queryset = Person.objects.filter(is_active=True).order_by("full_name")
         self.fields["executor"].queryset = Person.objects.filter(is_active=True).order_by("full_name")
-        self.fields["maintenance_type"].queryset = MaintenanceType.objects.order_by("code", "name")
+        self.fields["maintenance_type"].queryset = MaintenanceType.objects.filter(
+            code__in=ALLOWED_MAINTENANCE_TYPE_CODES
+        ).order_by("code", "name")
         self.fields["related_plan"].required = False
 
         active_plan_queryset = MaintenancePlan.objects.none()
@@ -145,4 +167,6 @@ class MaintenancePlanForm(BootstrapMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["machine"].queryset = Machine.objects.filter(is_active=True).order_by("name", "inventory_number")
-        self.fields["maintenance_type"].queryset = MaintenanceType.objects.order_by("code", "name")
+        self.fields["maintenance_type"].queryset = MaintenanceType.objects.filter(
+            code__in=ALLOWED_MAINTENANCE_TYPE_CODES
+        ).order_by("code", "name")

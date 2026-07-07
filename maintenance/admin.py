@@ -14,9 +14,9 @@ from .models import (
 
 @admin.register(Machine)
 class MachineAdmin(admin.ModelAdmin):
-    list_display = ("name", "inventory_number", "brand", "location", "is_active")
+    list_display = ("name", "technological_number", "inventory_number", "brand", "location", "is_active")
     list_filter = ("is_active", "brand", "location")
-    search_fields = ("name", "inventory_number", "brand", "location")
+    search_fields = ("name", "technological_number", "inventory_number", "brand", "location")
 
 
 @admin.register(Person)
@@ -50,7 +50,13 @@ class MaintenancePlanAdmin(admin.ModelAdmin):
     list_display = ("machine", "maintenance_type", "planned_date", "status")
     list_filter = ("status", "maintenance_type", "planned_date")
     autocomplete_fields = ("machine", "maintenance_type")
-    search_fields = ("machine__name", "machine__inventory_number", "maintenance_type__code", "maintenance_type__name")
+    search_fields = (
+        "machine__name",
+        "machine__technological_number",
+        "machine__inventory_number",
+        "maintenance_type__code",
+        "maintenance_type__name",
+    )
     date_hierarchy = "planned_date"
 
 

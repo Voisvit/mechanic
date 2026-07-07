@@ -54,6 +54,7 @@ urlpatterns = [
     path('archive/<int:year>/', protected(views.archive_year), name='archive_year'),
     path('archive/<int:year>/<int:month>/', protected(views.archive_month), name='archive_month'),
     path('parts/', protected(views.parts), name='parts'),
+    path('parts/add/', protected(views.part_create), name='part_create'),
     path('parts/print/', protected(views.parts_print), name='parts_print'),
     path('references/', protected(views.references), name='references'),
     path('references/inactive/', protected(views.inactive_persons), name='inactive_persons'),

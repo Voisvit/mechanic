@@ -1,6 +1,16 @@
 from django.db import models
 
 
+ALLOWED_MAINTENANCE_TYPE_CODES = (
+    "ТО-1",
+    "ТО-2",
+    "ТО-3",
+    "КР",
+    "СР",
+    "ПР",
+)
+
+
 class ActiveModelMixin(models.Model):
     is_active = models.BooleanField("Активний", default=True)
 
@@ -10,7 +20,8 @@ class ActiveModelMixin(models.Model):
 
 class Machine(ActiveModelMixin):
     name = models.CharField("Назва", max_length=255)
-    inventory_number = models.CharField("Інвентарний номер", max_length=100, unique=True)
+    technological_number = models.CharField("Технологічний номер", max_length=100, blank=True)
+    inventory_number = models.CharField("Інвентарний номер", max_length=100, blank=True)
     brand = models.CharField("Марка / виробник", max_length=255, blank=True)
     location = models.CharField("Розташування", max_length=255, blank=True)
     length = models.DecimalField("Довжина", max_digits=10, decimal_places=2, null=True, blank=True)
@@ -23,7 +34,9 @@ class Machine(ActiveModelMixin):
         ordering = ["name", "inventory_number"]
 
     def __str__(self):
-        return f"{self.name} ({self.inventory_number})"
+        if self.inventory_number:
+            return f"{self.name} ({self.inventory_number})"
+        return self.name
 
 
 class Person(ActiveModelMixin):
