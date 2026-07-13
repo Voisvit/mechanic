@@ -44,6 +44,7 @@ urlpatterns = [
     path('equipment/<int:pk>/parts/<int:part_pk>/delete/', protected(views.machine_part_delete), name='machine_part_delete'),
     path('schedule/', protected(views.schedule), name='schedule'),
     path('schedule/print/', protected(views.monthly_schedule_print), name='monthly_schedule_print'),
+    path('schedule/transfer/', protected(views.monthly_schedule_transfer), name='monthly_schedule_transfer'),
     path('schedule/yearly/', protected(views.yearly_schedule), name='yearly_schedule'),
     path('schedule/yearly/print/', protected(views.yearly_schedule_print), name='yearly_schedule_print'),
     path('schedule/plans/', protected(views.maintenance_plan_list), name='maintenance_plan_list'),

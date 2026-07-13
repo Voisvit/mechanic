@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import logout
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -63,6 +64,13 @@ def get_safe_next_url(request, fallback_url):
     return fallback_url
 
 
+def get_safe_url_param(request, param_name, fallback_url):
+    param_value = request.GET.get(param_name) or request.POST.get(param_name)
+    if param_value and url_has_allowed_host_and_scheme(param_value, allowed_hosts={request.get_host()}):
+        return param_value
+    return fallback_url
+
+
 def get_month_choices():
     return get_month_choices_uk()
 
@@ -105,6 +113,14 @@ def get_effective_plan_status(plan, today):
     return plan.status
 
 
+def get_schedule_url(route_name, year, month, selected_machine="", route_kwargs=None):
+    schedule_url = reverse(route_name, kwargs=route_kwargs or {})
+    schedule_query = {"year": year, "month": month}
+    if selected_machine:
+        schedule_query["machine"] = selected_machine
+    return f"{schedule_url}?{urlencode(schedule_query)}"
+
+
 def build_monthly_schedule_context(
     year,
     month,
@@ -112,6 +128,7 @@ def build_monthly_schedule_context(
     selected_machine="",
     include_inactive_with_activity=False,
     route_name="home",
+    route_kwargs=None,
     allow_cell_create=True,
 ):
     days_in_month = calendar.monthrange(year, month)[1]
@@ -156,13 +173,7 @@ def build_monthly_schedule_context(
     for plan in plans:
         plans_by_machine_day.setdefault((plan.machine_id, plan.planned_date.day), []).append(plan)
 
-    schedule_url = ""
-    schedule_query = {}
-    if allow_cell_create:
-        schedule_url = reverse(route_name)
-        schedule_query = {"year": year, "month": month}
-        if selected_machine:
-            schedule_query["machine"] = selected_machine
+    schedule_next_url = get_schedule_url(route_name, year, month, selected_machine, route_kwargs)
 
     schedule_rows = []
     for index, machine in enumerate(machines, start=1):
@@ -186,7 +197,7 @@ def build_monthly_schedule_context(
                         {
                             "machine": machine.pk,
                             "planned_date": planned_date.isoformat(),
-                            "next": f"{schedule_url}?{urlencode(schedule_query)}",
+                            "next": schedule_next_url,
                         }
                     )
                 )
@@ -213,14 +224,28 @@ def build_monthly_schedule_context(
                         for plan in day_plans
                     ),
                     "create_url": create_url,
-                    "actions": [
+                    "entries": [
                         {
-                            "label": "Відмітити виконання",
-                            "url": reverse("maintenance_log_create", kwargs={"pk": machine.pk})
-                            + f"?maintenance_type={plan.maintenance_type_id}&related_plan={plan.pk}",
+                            "code": plan.maintenance_type.code,
+                            "status": dict(MaintenancePlan.Status.choices)[get_effective_plan_status(plan, today)],
+                            "can_mark_done": get_effective_plan_status(plan, today) != MaintenancePlan.Status.DONE,
+                            "can_cancel": get_effective_plan_status(plan, today) not in [
+                                MaintenancePlan.Status.DONE,
+                                MaintenancePlan.Status.CANCELLED,
+                            ],
+                            "done_url": reverse("maintenance_log_create", kwargs={"pk": machine.pk})
+                            + "?"
+                            + urlencode(
+                                {
+                                    "maintenance_type": plan.maintenance_type_id,
+                                    "related_plan": plan.pk,
+                                }
+                            ),
+                            "cancel_url": reverse("maintenance_plan_cancel", kwargs={"pk": plan.pk})
+                            + "?"
+                            + urlencode({"next": schedule_next_url}),
                         }
                         for plan in day_plans
-                        if get_effective_plan_status(plan, today) != MaintenancePlan.Status.DONE
                     ],
                 }
             )
@@ -257,6 +282,7 @@ def build_monthly_schedule_context(
         "days_in_month": days_in_month,
         "month_name": get_month_label_uk(month),
         "schedule_rows": schedule_rows,
+        "is_current_month": year == today.year and month == today.month,
     }
 
 
@@ -316,6 +342,7 @@ def home(request):
     today = timezone.localdate()
     selected_year = request.GET.get("year", str(today.year))
     selected_month = request.GET.get("month", str(today.month))
+    selected_machine = request.GET.get("machine", "").strip()
 
     try:
         year = int(selected_year)
@@ -337,9 +364,26 @@ def home(request):
         "schedule.html",
         build_context(
             document_heading,
-            **build_monthly_schedule_context(year, month, today, route_name="home"),
+            **build_monthly_schedule_context(
+                year,
+                month,
+                today,
+                selected_machine=selected_machine,
+                route_name="home",
+            ),
             home_mode=True,
             schedule_heading=document_heading,
+            transfer_url=reverse("monthly_schedule_transfer")
+            + "?"
+            + urlencode(
+                {
+                    "year": year,
+                    "month": month,
+                    "machine": selected_machine,
+                    "back": get_schedule_url("home", year, month, selected_machine),
+                    "next": get_schedule_url("home", today.year, today.month, selected_machine),
+                }
+            ),
         ),
     )
 
@@ -850,10 +894,122 @@ def archive_month(request, year, month):
                 today,
                 include_inactive_with_activity=True,
                 route_name="archive_month",
+                route_kwargs={"year": year, "month": month},
                 allow_cell_create=False,
             ),
             archive_mode=True,
             archive_year=year,
+            transfer_url=reverse("monthly_schedule_transfer")
+            + "?"
+            + urlencode(
+                {
+                    "year": year,
+                    "month": month,
+                    "back": get_schedule_url("archive_month", year, month, route_kwargs={"year": year, "month": month}),
+                    "next": get_schedule_url("home", today.year, today.month),
+                }
+            ),
+        ),
+    )
+
+
+def monthly_schedule_transfer(request):
+    today = timezone.localdate()
+    fallback_url = get_schedule_url("home", today.year, today.month)
+    source_back_url = get_safe_url_param(request, "back", fallback_url)
+
+    try:
+        source_year = int(request.GET.get("year") or request.POST.get("year") or today.year)
+        source_month = int(request.GET.get("month") or request.POST.get("month") or today.month)
+        if source_month < 1 or source_month > 12:
+            raise ValueError
+    except ValueError:
+        source_year = today.year
+        source_month = today.month
+
+    selected_machine = (request.GET.get("machine") or request.POST.get("machine") or "").strip()
+    target_year = today.year
+    target_month = today.month
+    target_url = get_safe_next_url(request, get_schedule_url("home", target_year, target_month, selected_machine))
+
+    source_plans = MaintenancePlan.objects.filter(
+        planned_date__year=source_year,
+        planned_date__month=source_month,
+        machine__is_active=True,
+    ).exclude(status=MaintenancePlan.Status.CANCELLED)
+
+    if selected_machine:
+        source_plans = source_plans.filter(machine_id=selected_machine)
+
+    source_plans = source_plans.select_related("machine", "maintenance_type").order_by(
+        "machine__name",
+        "planned_date",
+        "maintenance_type__code",
+    )
+
+    if request.method == "POST":
+        source_plan_list = list(source_plans)
+        target_last_day = calendar.monthrange(target_year, target_month)[1]
+        target_dates = {
+            date(target_year, target_month, min(plan.planned_date.day, target_last_day))
+            for plan in source_plan_list
+        }
+        existing_keys = {
+            (plan.machine_id, plan.maintenance_type_id, plan.planned_date)
+            for plan in MaintenancePlan.objects.filter(
+                machine__is_active=True,
+                planned_date__in=target_dates,
+            ).exclude(status=MaintenancePlan.Status.CANCELLED)
+        }
+
+        copied_rows = []
+        skipped_count = 0
+        for plan in source_plan_list:
+            target_date = date(target_year, target_month, min(plan.planned_date.day, target_last_day))
+            plan_key = (plan.machine_id, plan.maintenance_type_id, target_date)
+            if plan_key in existing_keys:
+                skipped_count += 1
+                continue
+            copied_rows.append(
+                MaintenancePlan(
+                    machine=plan.machine,
+                    maintenance_type=plan.maintenance_type,
+                    planned_date=target_date,
+                    status=MaintenancePlan.Status.PLANNED,
+                    note=plan.note,
+                )
+            )
+            existing_keys.add(plan_key)
+
+        with transaction.atomic():
+            if copied_rows:
+                MaintenancePlan.objects.bulk_create(copied_rows)
+
+        if copied_rows:
+            messages.success(
+                request,
+                f"Перенесення завершено: створено {len(copied_rows)} запис(ів), пропущено {skipped_count}.",
+            )
+        else:
+            messages.info(request, "Нових записів для перенесення не знайдено. У поточному місяці вони вже існують.")
+        return redirect(target_url)
+
+    return render(
+        request,
+        "monthly_schedule_transfer_confirm.html",
+        build_context(
+            "Перенести дані на поточний місяць",
+            source_year=source_year,
+            source_month=source_month,
+            source_month_name=get_month_label_uk(source_month),
+            target_year=target_year,
+            target_month=target_month,
+            target_month_name=get_month_label_uk(target_month),
+            selected_machine=selected_machine,
+            source_plan_count=source_plans.count(),
+            back_url=source_back_url,
+            cancel_url=source_back_url,
+            next_url=target_url,
         ),
     )
 
@@ -1128,11 +1284,12 @@ def maintenance_plan_update(request, pk):
 
 def maintenance_plan_cancel(request, pk):
     maintenance_plan = get_object_or_404(MaintenancePlan, pk=pk)
+    next_url = get_safe_next_url(request, reverse("maintenance_plan_list"))
 
     if request.method == "POST":
         maintenance_plan.status = MaintenancePlan.Status.CANCELLED
         maintenance_plan.save(update_fields=["status"])
-        return redirect("maintenance_plan_list")
+        return redirect(next_url)
 
     return render(
         request,
@@ -1140,8 +1297,9 @@ def maintenance_plan_cancel(request, pk):
         build_context(
             "Скасувати планову роботу",
             maintenance_plan=maintenance_plan,
-            back_url=reverse("maintenance_plan_list"),
-            cancel_url=reverse("maintenance_plan_list"),
+            back_url=next_url,
+            cancel_url=next_url,
+            next_url=next_url,
         ),
     )
 

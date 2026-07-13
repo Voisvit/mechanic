@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-warning">
+            <div class="card-body p-4">
+                <p class="text-secondary mb-1">Місячний графік</p>
+                <h1 class="h3 mb-3">Перенести дані на поточний місяць</h1>
+                <p class="mb-3">
+                    Буде перенесено планові роботи з
+                    <strong>{{ source_month_name }} {{ source_year }}</strong>
+                    у
+                    <strong>{{ target_month_name }} {{ target_year }}</strong>.
+                </p>
+                <p class="mb-3">
+                    Джерело містить <strong>{{ source_plan_count }}</strong> активних планових записів.
+                    Під час перенесення вже існуючі записи поточного місяця не дублюються.
+                </p>
+                {% if selected_machine %}
+                <p class="mb-4">
+                    Перенесення буде виконане лише для вибраної машини.
+                </p>
+                {% else %}
+                <p class="mb-4">
+                    Перенесення буде виконане для всіх активних машин, які мають плани у вибраному місяці.
+                </p>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="year" value="{{ source_year }}">
+                    <input type="hidden" name="month" value="{{ source_month }}">
+                    <input type="hidden" name="machine" value="{{ selected_machine }}">
+                    <input type="hidden" name="back" value="{{ back_url }}">
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    <div class="d-flex gap-2">
+                        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Скасувати</a>
+                        <button type="submit" class="btn btn-warning">Підтвердити перенесення</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
