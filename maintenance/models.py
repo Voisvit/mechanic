@@ -1,3 +1,6 @@
+from decimal import Decimal
+
+from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -200,6 +203,36 @@ class MaintenanceLog(models.Model):
 
     def __str__(self):
         return f"{self.machine} - {self.maintenance_type} ({self.performed_date})"
+
+
+class MaintenanceLogPartUsage(models.Model):
+    maintenance_log = models.ForeignKey(
+        MaintenanceLog,
+        verbose_name="Запис про виконані роботи",
+        on_delete=models.CASCADE,
+        related_name="used_parts",
+    )
+    part = models.ForeignKey(
+        Part,
+        verbose_name="Запчастина або матеріал",
+        on_delete=models.PROTECT,
+        related_name="maintenance_log_usages",
+    )
+    quantity = models.DecimalField(
+        "Використана кількість",
+        max_digits=10,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal("0.001"))],
+    )
+
+    class Meta:
+        verbose_name = "Використана запчастина або матеріал"
+        verbose_name_plural = "Використані запчастини та матеріали"
+        unique_together = ("maintenance_log", "part")
+        ordering = ["part__name"]
+
+    def __str__(self):
+        return f"{self.maintenance_log} - {self.part}: {self.quantity}"
 
 
 class MachineSpec(models.Model):

@@ -8,37 +8,92 @@
         <div class="card shadow-sm border-warning">
             <div class="card-body p-4">
                 <p class="text-secondary mb-1">Місячний графік</p>
-                <h1 class="h3 mb-3">Перенести дані на поточний місяць</h1>
-                <p class="mb-3">
-                    Буде перенесено планові роботи з
-                    <strong>{{ source_month_name }} {{ source_year }}</strong>
-                    у
-                    <strong>{{ target_month_name }} {{ target_year }}</strong>.
-                </p>
-                <p class="mb-3">
-                    Джерело містить <strong>{{ source_plan_count }}</strong> активних планових записів.
-                    Під час перенесення вже існуючі записи поточного місяця не дублюються.
-                </p>
-                {% if selected_machine %}
-                <p class="mb-4">
-                    Перенесення буде виконане лише для вибраної машини.
-                </p>
-                {% else %}
-                <p class="mb-4">
-                    Перенесення буде виконане для всіх активних машин, які мають плани у вибраному місяці.
-                </p>
-                {% endif %}
+                <h1 class="h3 mb-3">Сформувати місяць</h1>
 
-                <form method="post">
+                <form method="post" novalidate>
                     {% csrf_token %}
-                    <input type="hidden" name="year" value="{{ source_year }}">
-                    <input type="hidden" name="month" value="{{ source_month }}">
                     <input type="hidden" name="machine" value="{{ selected_machine }}">
                     <input type="hidden" name="back" value="{{ back_url }}">
                     <input type="hidden" name="next" value="{{ next_url }}">
-                    <div class="d-flex gap-2">
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.source_month.id_for_label }}">{{ form.source_month.label }}</label>
+                            {{ form.source_month }}
+                            {% for error in form.source_month.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.source_year.id_for_label }}">{{ form.source_year.label }}</label>
+                            <select name="{{ form.source_year.name }}" id="{{ form.source_year.id_for_label }}" class="form-control">
+                                {% for year in transfer_year_choices %}
+                                <option value="{{ year }}" {% if form.source_year.value|stringformat:"s" == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            {% for error in form.source_year.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.target_month.id_for_label }}">{{ form.target_month.label }}</label>
+                            {{ form.target_month }}
+                            {% for error in form.target_month.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="{{ form.target_year.id_for_label }}">{{ form.target_year.label }}</label>
+                            <select name="{{ form.target_year.name }}" id="{{ form.target_year.id_for_label }}" class="form-control">
+                                {% for year in transfer_year_choices %}
+                                <option value="{{ year }}" {% if form.target_year.value|stringformat:"s" == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                            {% for error in form.target_year.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger mt-3 mb-0">
+                        {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="mt-4">
+                        <p class="mb-2">
+                            Буде сформовано планові роботи з
+                            <strong>{{ source_month_name }} {{ source_year }}</strong>
+                            у
+                            <strong>{{ target_month_name }} {{ target_year }}</strong>.
+                        </p>
+                        <p class="mb-2">
+                            Джерело містить <strong>{{ source_plan_count }}</strong> активних планових записів.
+                        </p>
+                        {% if target_has_existing %}
+                        <div class="alert alert-warning mb-2">
+                            Для обраного місяця вже існують події. Повторне формування може створити дублікати.
+                            Точні збіги система пропустить автоматично.
+                            Поточна кількість записів у цільовому місяці: <strong>{{ target_plan_count }}</strong>.
+                        </div>
+                        {% else %}
+                        <p class="mb-2">
+                            У цільовому місяці зараз <strong>{{ target_plan_count }}</strong> активних записів.
+                        </p>
+                        {% endif %}
+                        {% if selected_machine %}
+                        <p class="mb-0">Формування буде виконане лише для вибраної машини.</p>
+                        {% else %}
+                        <p class="mb-0">Формування буде виконане для всіх активних машин, які мають плани у вибраному місяці.</p>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
                         <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Скасувати</a>
-                        <button type="submit" class="btn btn-warning">Підтвердити перенесення</button>
+                        <button type="submit" class="btn btn-warning">Підтвердити формування</button>
                     </div>
                 </form>
             </div>

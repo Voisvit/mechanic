@@ -13,6 +13,7 @@
         <a href="{% url 'machine_detail_print' machine.pk %}" class="btn btn-outline-dark" target="_blank">Друк</a>
         <a href="{% url 'machine_update' machine.pk %}" class="btn btn-outline-primary">Редагувати</a>
         <a href="{% url 'machine_specification' machine.pk %}" class="btn btn-dark">ТТХ машини</a>
+        <a href="{% url 'machine_analytics' machine.pk %}" class="btn btn-outline-secondary">Аналітика</a>
         <a href="{% url 'machine_deactivate' machine.pk %}" class="btn btn-outline-danger">Деактивувати</a>
     </div>
 </div>
@@ -36,6 +37,10 @@
                     <dt class="col-sm-5">Опис</dt>
                     <dd class="col-sm-7">{{ machine.description|default:"-" }}</dd>
                 </dl>
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <a href="{% url 'machine_specification' machine.pk %}" class="btn btn-sm btn-outline-dark">ТТХ машини</a>
+                    <a href="{% url 'machine_analytics' machine.pk %}" class="btn btn-sm btn-outline-primary">Аналітика</a>
+                </div>
             </div>
         </div>
     </div>
@@ -66,7 +71,19 @@
                             <tr>
                                 <td>{{ log.performed_date|date:"d.m.Y" }}</td>
                                 <td>{{ log.maintenance_type.name }}</td>
-                                <td>{{ log.work_description }}</td>
+                                <td>
+                                    <div>{{ log.work_description }}</div>
+                                    {% if log.used_parts.all %}
+                                    <div class="mt-2">
+                                        <div class="fw-semibold small text-uppercase text-secondary mb-1">Використані запчастини та матеріали</div>
+                                        <ul class="mb-0 ps-3">
+                                            {% for usage in log.used_parts.all %}
+                                            <li>{{ usage.part.name }} — {{ usage.quantity }} {{ usage.part.unit }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </td>
                                 <td>{{ log.responsible_person.full_name }}</td>
                                 <td>{{ log.executor.full_name }}</td>
                                 <td class="text-end">

@@ -3,6 +3,21 @@
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block content %}
+<style>
+    .sticky-table-wrapper {
+        max-height: calc(100vh - 260px);
+        overflow: auto;
+    }
+
+    .sticky-table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background-color: var(--bs-table-bg, #f8f9fa);
+        box-shadow: inset 0 -1px 0 var(--bs-border-color);
+    }
+</style>
+
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
     <div>
         <h1 class="h3 mb-1">Загальний перелік запчастин</h1>
@@ -33,15 +48,17 @@
 </div>
 
 <div class="card shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
+    <div class="table-responsive sticky-table-wrapper">
+        <table class="table table-hover align-middle mb-0 sticky-table">
             <thead class="table-light">
                 <tr>
                     <th>№</th>
                     <th>Назва запчастини / агрегату</th>
+                    <th>Опис запчастини</th>
                     <th>Загальна кількість</th>
                     <th>Одиниця виміру</th>
                     <th>Де використовується</th>
+                    <th class="text-end">Дії</th>
                 </tr>
             </thead>
             <tbody>
@@ -49,6 +66,7 @@
                 <tr>
                     <td>{{ row.index }}</td>
                     <td class="fw-semibold">{{ row.part.name }}</td>
+                    <td>{{ row.part.description|default:"-" }}</td>
                     <td>{{ row.total_quantity }}</td>
                     <td>{{ row.part.unit }}</td>
                     <td>
@@ -58,10 +76,15 @@
                         </a>{% if not forloop.last %}, {% endif %}
                         {% endfor %}
                     </td>
+                    <td class="text-end">
+                        <a href="{% url 'part_update' row.part.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary">
+                            Редагувати
+                        </a>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-secondary">
+                    <td colspan="7" class="text-center py-4 text-secondary">
                         Запчастини за вибраними фільтрами не знайдені.
                     </td>
                 </tr>

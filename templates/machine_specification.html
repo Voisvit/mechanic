@@ -13,6 +13,7 @@
         <a href="{% url 'machine_specification_edit' machine.pk %}" class="btn btn-outline-primary">Редагувати ТТХ</a>
         <a href="{% url 'machine_part_create' machine.pk %}" class="btn btn-success">Прив'язати запчастину</a>
         <a href="{% url 'part_create' %}?next={% url 'machine_part_create' machine.pk %}" class="btn btn-outline-dark">Створити запчастину</a>
+        <a href="{% url 'machine_analytics' machine.pk %}" class="btn btn-outline-secondary">Аналітика</a>
         <a href="{% url 'machine_detail' machine.pk %}" class="btn btn-dark">Справа машини</a>
     </div>
 </div>

@@ -5,6 +5,7 @@ from .models import (
     MachinePart,
     MachineSpec,
     MaintenanceLog,
+    MaintenanceLogPartUsage,
     MaintenancePlan,
     MaintenanceType,
     Part,
@@ -71,7 +72,29 @@ class MaintenanceLogAdmin(admin.ModelAdmin):
         "executor",
         "related_plan",
     )
+    search_fields = (
+        "machine__name",
+        "machine__technological_number",
+        "machine__inventory_number",
+        "maintenance_type__code",
+        "maintenance_type__name",
+        "work_description",
+        "responsible_person__full_name",
+        "executor__full_name",
+    )
     date_hierarchy = "performed_date"
+
+
+@admin.register(MaintenanceLogPartUsage)
+class MaintenanceLogPartUsageAdmin(admin.ModelAdmin):
+    list_display = ("maintenance_log", "part", "quantity")
+    list_filter = ("part",)
+    autocomplete_fields = ("maintenance_log", "part")
+    search_fields = (
+        "maintenance_log__machine__name",
+        "maintenance_log__machine__inventory_number",
+        "part__name",
+    )
 
 
 @admin.register(MachineSpec)
