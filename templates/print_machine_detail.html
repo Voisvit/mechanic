@@ -34,7 +34,17 @@
             <tr>
                 <td>{{ log.performed_date|date:"d.m.Y" }}</td>
                 <td>{{ log.maintenance_type.name }}</td>
-                <td>{{ log.work_description }}</td>
+                <td>
+                    <div>{{ log.work_description }}</div>
+                    {% if log.used_parts.all %}
+                    <div style="margin-top: 6px;">
+                        <div><strong>Використані запчастини та матеріали:</strong></div>
+                        {% for usage in log.used_parts.all %}
+                        <div>{{ usage.part.name }} — {{ usage.quantity }} {{ usage.part.unit }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </td>
                 <td>{{ log.responsible_person.full_name }}</td>
                 <td>{{ log.executor.full_name }}</td>
             </tr>

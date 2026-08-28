@@ -81,6 +81,36 @@ class Part(models.Model):
         return f"{self.name} ({self.unit})"
 
 
+class PartAnalyticalMapping(models.Model):
+    source_part = models.ForeignKey(
+        Part,
+        verbose_name="Фактично використана запчастина",
+        on_delete=models.CASCADE,
+        related_name="analytical_mappings",
+    )
+    target_part = models.ForeignKey(
+        Part,
+        verbose_name="Аналітична відповідність",
+        on_delete=models.PROTECT,
+        related_name="analytical_mapping_targets",
+    )
+    quantity_factor = models.DecimalField(
+        "Кількість",
+        max_digits=10,
+        decimal_places=3,
+        validators=[MinValueValidator(Decimal("0.001"))],
+    )
+
+    class Meta:
+        verbose_name = "Аналітична відповідність запчастини"
+        verbose_name_plural = "Аналітичні відповідності запчастин"
+        unique_together = ("source_part", "target_part")
+        ordering = ["source_part__name", "target_part__name"]
+
+    def __str__(self):
+        return f"{self.source_part} -> {self.target_part} x {self.quantity_factor}"
+
+
 class MachinePart(models.Model):
     machine = models.ForeignKey(
         Machine,

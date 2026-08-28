@@ -12,6 +12,7 @@ from .models import (
     MaintenancePlan,
     MaintenanceType,
     Part,
+    PartAnalyticalMapping,
     Person,
 )
 
@@ -105,12 +106,22 @@ class MachinePartForm(BootstrapMixin, forms.ModelForm):
 
 
 class PartForm(BootstrapMixin, forms.ModelForm):
+    has_analytical_mapping = forms.BooleanField(
+        label="Аналог / комплект",
+        required=False,
+    )
+
     class Meta:
         model = Part
         fields = ["name", "unit", "description"]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 4}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk and not self.is_bound:
+            self.fields["has_analytical_mapping"].initial = self.instance.analytical_mappings.exists()
 
 
 class PersonForm(BootstrapMixin, forms.ModelForm):
@@ -161,9 +172,25 @@ class MaintenanceLogForm(BootstrapMixin, forms.ModelForm):
             "related_plan",
         ]
         widgets = {
-            "performed_date": forms.DateInput(attrs={"type": "date"}),
+            "performed_date": forms.DateInput(
+                format="%Y-%m-%d",
+                attrs={
+                    "type": "date",
+                },
+            ),
             "work_description": forms.Textarea(attrs={"rows": 4}),
         }
+
+    performed_date = forms.DateField(
+        label="Дата виконання",
+        input_formats=["%Y-%m-%d"],
+        widget=forms.DateInput(
+            format="%Y-%m-%d",
+            attrs={
+                "type": "date",
+            },
+        ),
+    )
 
     def __init__(self, *args, machine=None, **kwargs):
         self.machine = machine
@@ -253,6 +280,94 @@ MaintenanceLogPartUsageFormSet = inlineformset_factory(
     form=MaintenanceLogPartUsageForm,
     formset=BaseMaintenanceLogPartUsageFormSet,
     extra=3,
+    can_delete=True,
+)
+
+
+class PartAnalyticalMappingForm(BootstrapMixin, forms.ModelForm):
+    class Meta:
+        model = PartAnalyticalMapping
+        fields = ["target_part", "quantity_factor"]
+
+    def __init__(self, *args, source_part=None, **kwargs):
+        self.source_part = source_part
+        super().__init__(*args, **kwargs)
+        queryset = Part.objects.order_by("name")
+        if self.source_part and self.source_part.pk:
+            queryset = queryset.exclude(pk=self.source_part.pk)
+        self.fields["target_part"].queryset = queryset
+        self.fields["target_part"].empty_label = "Оберіть запчастину"
+        self.fields["quantity_factor"].widget.attrs["step"] = "0.001"
+        self.fields["quantity_factor"].widget.attrs["min"] = "0.001"
+
+    def clean_quantity_factor(self):
+        quantity_factor = self.cleaned_data.get("quantity_factor")
+        if quantity_factor is not None and quantity_factor <= 0:
+            raise forms.ValidationError("Кількість повинна бути більшою за 0.")
+        return quantity_factor
+
+
+class BasePartAnalyticalMappingFormSet(BaseInlineFormSet):
+    def get_form_kwargs(self, index):
+        kwargs = super().get_form_kwargs(index)
+        kwargs["source_part"] = self.instance
+        return kwargs
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        seen_target_ids = set()
+        active_mapping_count = 0
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data"):
+                continue
+            if form.cleaned_data.get("DELETE"):
+                continue
+
+            target_part = form.cleaned_data.get("target_part")
+            quantity_factor = form.cleaned_data.get("quantity_factor")
+
+            if not target_part and quantity_factor in (None, ""):
+                continue
+
+            if not target_part or quantity_factor in (None, ""):
+                raise forms.ValidationError("Для кожної відповідності потрібно обрати запчастину та вказати кількість.")
+
+            active_mapping_count += 1
+
+            if self.instance.pk and target_part.pk == self.instance.pk:
+                raise forms.ValidationError("Запчастина не може бути аналітичною відповідністю сама до себе.")
+
+            if target_part.pk in seen_target_ids:
+                raise forms.ValidationError("Одна й та сама запчастина не може повторюватися в аналітичній відповідності.")
+            seen_target_ids.add(target_part.pk)
+
+            if (
+                self.instance.pk
+                and PartAnalyticalMapping.objects.filter(
+                    source_part=target_part,
+                    target_part=self.instance,
+                )
+                .exclude(pk=form.instance.pk)
+                .exists()
+            ):
+                raise forms.ValidationError(
+                    f"Некоректна циклічна відповідність: «{target_part.name}» уже зараховується до цієї запчастини."
+                )
+
+        if active_mapping_count == 0:
+            raise forms.ValidationError("Для аналога або комплекту потрібно додати хоча б одну аналітичну відповідність.")
+
+
+PartAnalyticalMappingFormSet = inlineformset_factory(
+    Part,
+    PartAnalyticalMapping,
+    fk_name="source_part",
+    form=PartAnalyticalMappingForm,
+    formset=BasePartAnalyticalMappingFormSet,
+    extra=1,
     can_delete=True,
 )
 

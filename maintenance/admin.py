@@ -9,6 +9,7 @@ from .models import (
     MaintenancePlan,
     MaintenanceType,
     Part,
+    PartAnalyticalMapping,
     Person,
 )
 
@@ -31,6 +32,14 @@ class PersonAdmin(admin.ModelAdmin):
 class PartAdmin(admin.ModelAdmin):
     list_display = ("name", "unit")
     search_fields = ("name", "unit")
+
+
+@admin.register(PartAnalyticalMapping)
+class PartAnalyticalMappingAdmin(admin.ModelAdmin):
+    list_display = ("source_part", "target_part", "quantity_factor")
+    list_filter = ("target_part",)
+    autocomplete_fields = ("source_part", "target_part")
+    search_fields = ("source_part__name", "target_part__name")
 
 
 @admin.register(MachinePart)

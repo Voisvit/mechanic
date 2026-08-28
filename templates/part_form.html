@@ -3,6 +3,23 @@
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block content %}
+<style>
+    .mapping-row {
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+    }
+
+    .mapping-row-template {
+        display: none;
+    }
+
+    .mapping-section.is-hidden {
+        display: none;
+    }
+</style>
+
 <div class="row justify-content-center">
     <div class="col-lg-7">
         <div class="card shadow-sm">
@@ -21,13 +38,103 @@
                     <div class="row g-3">
                         {% for field in form %}
                         <div class="col-12">
+                            {% if field.name == "has_analytical_mapping" %}
+                            <div class="form-check">
+                                {{ field }}
+                                <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            </div>
+                            {% else %}
                             <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
                             {{ field }}
+                            {% endif %}
                             {% for error in field.errors %}
                             <div class="text-danger small mt-1">{{ error }}</div>
                             {% endfor %}
                         </div>
                         {% endfor %}
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="border rounded p-3">
+                            <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+                                <div>
+                                    <h2 class="h5 mb-1">Аналітична відповідність</h2>
+                                    <p class="text-secondary mb-0">Використовуйте для аналогів і комплектів, які в аналітиці повинні зараховуватись до інших штатних запчастин.</p>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm mapping-section" id="add-mapping-row">
+                                    Додати відповідність
+                                </button>
+                            </div>
+
+                            {{ mapping_formset.management_form }}
+                            <div id="mapping-section" class="mapping-section{% if not form.has_analytical_mapping.value %} is-hidden{% endif %}">
+                                <div id="mapping-formset" class="d-flex flex-column gap-3">
+                                    {% for mapping_form in mapping_formset %}
+                                    <div class="mapping-row">
+                                        {% for hidden in mapping_form.hidden_fields %}
+                                        {{ hidden }}
+                                        {% endfor %}
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-6">
+                                                <label class="form-label" for="{{ mapping_form.target_part.id_for_label }}">{{ mapping_form.target_part.label }}</label>
+                                                {{ mapping_form.target_part }}
+                                                {% for error in mapping_form.target_part.errors %}
+                                                <div class="text-danger small mt-1">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label" for="{{ mapping_form.quantity_factor.id_for_label }}">{{ mapping_form.quantity_factor.label }}</label>
+                                                {{ mapping_form.quantity_factor }}
+                                                {% for error in mapping_form.quantity_factor.errors %}
+                                                <div class="text-danger small mt-1">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="col-md-2">
+                                                {% if mapping_formset.can_delete %}
+                                                <div class="form-check">
+                                                    {{ mapping_form.DELETE }}
+                                                    <label class="form-check-label" for="{{ mapping_form.DELETE.id_for_label }}">Видалити</label>
+                                                </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                {% if mapping_formset.non_form_errors %}
+                                <div class="alert alert-danger mt-3 mb-0">
+                                    {% for error in mapping_formset.non_form_errors %}
+                                    <div>{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <div id="mapping-empty-form" class="mapping-row mapping-row-template">
+                                    {% for hidden in mapping_formset.empty_form.hidden_fields %}
+                                    {{ hidden }}
+                                    {% endfor %}
+                                    <div class="row g-3 align-items-end">
+                                        <div class="col-md-6">
+                                            <label class="form-label" for="{{ mapping_formset.empty_form.target_part.id_for_label }}">{{ mapping_formset.empty_form.target_part.label }}</label>
+                                            {{ mapping_formset.empty_form.target_part }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label" for="{{ mapping_formset.empty_form.quantity_factor.id_for_label }}">{{ mapping_formset.empty_form.quantity_factor.label }}</label>
+                                            {{ mapping_formset.empty_form.quantity_factor }}
+                                        </div>
+                                        <div class="col-md-2">
+                                            {% if mapping_formset.can_delete %}
+                                            <div class="form-check">
+                                                {{ mapping_formset.empty_form.DELETE }}
+                                                <label class="form-check-label" for="{{ mapping_formset.empty_form.DELETE.id_for_label }}">Видалити</label>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     {% if form.non_field_errors %}
@@ -47,4 +154,49 @@
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        const checkbox = document.getElementById("id_has_analytical_mapping");
+        const addButton = document.getElementById("add-mapping-row");
+        const mappingSection = document.getElementById("mapping-section");
+        const formsetContainer = document.getElementById("mapping-formset");
+        const totalFormsInput = document.getElementById("id_analytical_mappings-TOTAL_FORMS");
+        const emptyFormTemplate = document.getElementById("mapping-empty-form");
+
+        function syncVisibility() {
+            if (!checkbox || !mappingSection || !addButton) {
+                return;
+            }
+
+            const hiddenClass = "is-hidden";
+            if (checkbox.checked) {
+                mappingSection.classList.remove(hiddenClass);
+                addButton.classList.remove(hiddenClass);
+            } else {
+                mappingSection.classList.add(hiddenClass);
+                addButton.classList.add(hiddenClass);
+            }
+        }
+
+        if (checkbox) {
+            checkbox.addEventListener("change", syncVisibility);
+            syncVisibility();
+        }
+
+        if (!addButton || !formsetContainer || !totalFormsInput || !emptyFormTemplate) {
+            return;
+        }
+
+        addButton.addEventListener("click", function () {
+            const formIndex = Number(totalFormsInput.value);
+            const templateHtml = emptyFormTemplate.innerHTML.replaceAll("__prefix__", String(formIndex));
+            const wrapper = document.createElement("div");
+            wrapper.className = "mapping-row";
+            wrapper.innerHTML = templateHtml;
+            formsetContainer.appendChild(wrapper);
+            totalFormsInput.value = String(formIndex + 1);
+        });
+    })();
+</script>
 {% endblock %}

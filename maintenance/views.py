@@ -6,12 +6,11 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.db import transaction
-from django.db.models import DecimalField, Prefetch, Q, Sum, Value
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.db.models.functions import Coalesce
 
 from .forms import (
     MachineForm,
@@ -21,6 +20,7 @@ from .forms import (
     MaintenanceLogPartUsageFormSet,
     MonthlyScheduleTransferForm,
     MaintenancePlanForm,
+    PartAnalyticalMappingFormSet,
     PartForm,
     PersonForm,
 )
@@ -33,12 +33,12 @@ from .models import (
     MaintenancePlan,
     MaintenanceType,
     Part,
+    PartAnalyticalMapping,
     Person,
 )
 
 
 SYSTEM_NAME = "Журнал технічного обслуговування обладнання"
-ZERO_DECIMAL = Value(Decimal("0"), output_field=DecimalField(max_digits=10, decimal_places=3))
 
 
 def build_context(page_title, **kwargs):
@@ -859,39 +859,56 @@ def machine_analytics(request, pk):
         .select_related("part")
         .order_by("part__name")
     )
-    usage_totals = {
-        row["part_id"]: row["total_used"]
-        for row in (
-            MaintenanceLogPartUsage.objects.filter(maintenance_log__machine=machine)
-            .values("part_id")
-            .annotate(total_used=Coalesce(Sum("quantity"), ZERO_DECIMAL))
-        )
-    }
 
     analytics_rows = []
-    included_part_ids = set()
+    installed_part_ids = set()
+    usage_totals = {}
     for machine_part in machine_parts:
-        included_part_ids.add(machine_part.part_id)
+        installed_part_ids.add(machine_part.part_id)
+        usage_totals[machine_part.part_id] = Decimal("0")
         analytics_rows.append(
             {
                 "part": machine_part.part,
                 "installed_quantity": machine_part.quantity,
-                "used_quantity": usage_totals.get(machine_part.part_id, Decimal("0")),
+                "used_quantity": Decimal("0"),
             }
         )
 
-    extra_used_parts = Part.objects.filter(
-        maintenance_log_usages__maintenance_log__machine=machine
-    ).exclude(pk__in=included_part_ids).distinct().order_by("name")
-
-    for part in extra_used_parts:
-        analytics_rows.append(
-            {
-                "part": part,
-                "installed_quantity": None,
-                "used_quantity": usage_totals.get(part.pk, Decimal("0")),
-            }
+    usage_entries = (
+        MaintenanceLogPartUsage.objects.filter(maintenance_log__machine=machine)
+        .select_related("part")
+        .prefetch_related(
+            Prefetch(
+                "part__analytical_mappings",
+                queryset=PartAnalyticalMapping.objects.select_related("target_part").order_by("target_part__name"),
+            )
         )
+    )
+
+    ignored_analytics_items = []
+    for usage in usage_entries:
+        mappings = list(usage.part.analytical_mappings.all())
+        if mappings:
+            matched_target = False
+            for mapping in mappings:
+                if mapping.target_part_id in installed_part_ids:
+                    usage_totals[mapping.target_part_id] += usage.quantity * mapping.quantity_factor
+                    matched_target = True
+                else:
+                    ignored_analytics_items.append(
+                        f"{usage.part.name} -> {mapping.target_part.name}"
+                    )
+            if not matched_target and not any(item.startswith(f"{usage.part.name} ->") for item in ignored_analytics_items):
+                ignored_analytics_items.append(usage.part.name)
+            continue
+
+        if usage.part_id in installed_part_ids:
+            usage_totals[usage.part_id] += usage.quantity
+        else:
+            ignored_analytics_items.append(usage.part.name)
+
+    for row in analytics_rows:
+        row["used_quantity"] = usage_totals.get(row["part"].pk, Decimal("0"))
 
     analytics_rows.sort(key=lambda row: row["part"].name.lower())
 
@@ -902,6 +919,7 @@ def machine_analytics(request, pk):
             "Аналітика",
             machine=machine,
             analytics_rows=analytics_rows,
+            ignored_analytics_items=sorted(set(ignored_analytics_items)),
             back_url=reverse("machine_detail", kwargs={"pk": machine.pk}),
         ),
     )
@@ -1560,11 +1578,22 @@ def part_create(request):
 
     if request.method == "POST":
         form = PartForm(request.POST)
+        mapping_formset = PartAnalyticalMappingFormSet(request.POST, prefix="analytical_mappings")
         if form.is_valid():
-            form.save()
-            return redirect(next_url)
+            has_analytical_mapping = form.cleaned_data.get("has_analytical_mapping")
+            if not has_analytical_mapping or mapping_formset.is_valid():
+                with transaction.atomic():
+                    part = form.save()
+                    if has_analytical_mapping:
+                        mapping_formset.instance = part
+                        mapping_formset.save()
+                return redirect(next_url)
     else:
         form = PartForm()
+        mapping_formset = PartAnalyticalMappingFormSet(prefix="analytical_mappings")
+
+    if request.method == "POST" and "mapping_formset" not in locals():
+        mapping_formset = PartAnalyticalMappingFormSet(request.POST, prefix="analytical_mappings")
 
     return render(
         request,
@@ -1572,6 +1601,7 @@ def part_create(request):
         build_context(
             "Створити запчастину",
             form=form,
+            mapping_formset=mapping_formset,
             form_title="Створити запчастину",
             back_url=next_url,
             cancel_url=next_url,
@@ -1586,11 +1616,34 @@ def part_update(request, pk):
 
     if request.method == "POST":
         form = PartForm(request.POST, instance=part)
+        mapping_formset = PartAnalyticalMappingFormSet(
+            request.POST,
+            instance=part,
+            prefix="analytical_mappings",
+        )
         if form.is_valid():
-            form.save()
-            return redirect(next_url)
+            has_analytical_mapping = form.cleaned_data.get("has_analytical_mapping")
+            if not has_analytical_mapping or mapping_formset.is_valid():
+                with transaction.atomic():
+                    part = form.save()
+                    if has_analytical_mapping:
+                        mapping_formset.save()
+                    else:
+                        part.analytical_mappings.all().delete()
+                return redirect(next_url)
     else:
         form = PartForm(instance=part)
+        mapping_formset = PartAnalyticalMappingFormSet(
+            instance=part,
+            prefix="analytical_mappings",
+        )
+
+    if request.method == "POST" and "mapping_formset" not in locals():
+        mapping_formset = PartAnalyticalMappingFormSet(
+            request.POST,
+            instance=part,
+            prefix="analytical_mappings",
+        )
 
     return render(
         request,
@@ -1599,6 +1652,7 @@ def part_update(request, pk):
             "Редагувати запчастину",
             part=part,
             form=form,
+            mapping_formset=mapping_formset,
             form_title="Редагувати запчастину",
             back_url=next_url,
             cancel_url=next_url,

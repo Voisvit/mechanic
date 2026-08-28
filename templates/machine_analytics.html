@@ -18,6 +18,12 @@
 <div class="card shadow-sm">
     <div class="card-body">
         <h2 class="h5 mb-3">Використання запчастин та матеріалів</h2>
+        {% if ignored_analytics_items %}
+        <div class="alert alert-warning">
+            Частина використаних позицій не була зарахована в аналітику, оскільки вони або їх аналітичні відповідності не прив’язані до ТТХ цієї машини:
+            <strong>{{ ignored_analytics_items|join:", " }}</strong>.
+        </div>
+        {% endif %}
         {% if analytics_rows %}
         <div class="table-responsive">
             <table class="table align-middle mb-0">
@@ -34,8 +40,8 @@
                     <tr>
                         <td class="fw-semibold">{{ row.part.name }}</td>
                         <td>{{ row.part.unit }}</td>
-                        <td class="text-end">{% if row.installed_quantity is not None %}{{ row.installed_quantity }}{% else %}-{% endif %}</td>
-                        <td class="text-end">{{ row.used_quantity }}</td>
+                        <td class="text-end">{% if row.installed_quantity is not None %}{{ row.installed_quantity|floatformat:"-3" }}{% else %}-{% endif %}</td>
+                        <td class="text-end">{{ row.used_quantity|floatformat:"-3" }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
