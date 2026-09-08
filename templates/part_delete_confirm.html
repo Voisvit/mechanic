@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-danger">
+            <div class="card-body p-4">
+                <p class="text-secondary mb-1">Запчастини</p>
+                <h1 class="h3 mb-3">Видалити запчастину</h1>
+                <p class="mb-3">
+                    Ви впевнені, що хочете видалити запчастину <strong>«{{ part.name }}»</strong>?
+                </p>
+
+                {% if blockers %}
+                <div class="alert alert-warning">
+                    <p class="mb-2">
+                        Запчастину неможливо видалити, оскільки вона використовується в обладнанні,
+                        історії робіт або аналітичних відповідностях.
+                    </p>
+                    <ul class="mb-0">
+                        {% for blocker in blockers %}
+                        <li>{{ blocker }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ next_url }}">
+                    <div class="d-flex gap-2">
+                        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Скасувати</a>
+                        {% if not blockers %}
+                        <button type="submit" class="btn btn-danger">Видалити</button>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -21,7 +21,7 @@
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
     <div>
         <h1 class="h3 mb-1">Загальний перелік запчастин</h1>
-        <p class="text-secondary mb-0">Агрегований перелік запчастин та агрегатів на основі прив’язок до обладнання.</p>
+        <p class="text-secondary mb-0">Повний довідник запчастин та агрегатів із кількістю за прив’язками до обладнання.</p>
     </div>
     <form method="get" class="d-flex flex-column flex-md-row gap-2">
         <input
@@ -53,6 +53,7 @@
             <thead class="table-light">
                 <tr>
                     <th>№</th>
+                    <th>ID</th>
                     <th>Назва запчастини / агрегату</th>
                     <th>Опис запчастини</th>
                     <th>Загальна кількість</th>
@@ -65,26 +66,34 @@
                 {% for row in part_rows %}
                 <tr>
                     <td>{{ row.index }}</td>
+                    <td class="text-secondary">{{ row.part.pk }}</td>
                     <td class="fw-semibold">{{ row.part.name }}</td>
                     <td>{{ row.part.description|default:"-" }}</td>
                     <td>{{ row.total_quantity }}</td>
                     <td>{{ row.part.unit }}</td>
                     <td>
+                        {% if row.machines %}
                         {% for machine in row.machines %}
                         <a href="{% url 'machine_specification' machine.pk %}" class="text-decoration-none">
                             {{ machine.name }}
                         </a>{% if not forloop.last %}, {% endif %}
                         {% endfor %}
+                        {% else %}
+                        —
+                        {% endif %}
                     </td>
                     <td class="text-end">
-                        <a href="{% url 'part_update' row.part.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary">
+                        <a href="{% url 'part_update' row.part.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary mb-1">
                             Редагувати
+                        </a>
+                        <a href="{% url 'part_delete' row.part.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-danger mb-1">
+                            Видалити
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center py-4 text-secondary">
+                    <td colspan="8" class="text-center py-4 text-secondary">
                         Запчастини за вибраними фільтрами не знайдені.
                     </td>
                 </tr>

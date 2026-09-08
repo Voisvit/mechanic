@@ -10,6 +10,7 @@
     </div>
     <div class="d-flex gap-2">
         <a href="{% url 'schedule' %}?month={{ selected_month }}&year={{ selected_year }}" class="btn btn-outline-secondary">До графіка</a>
+        <a href="{% url 'maintenance_plan_bulk_create' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-outline-success">Сформувати графік по датах</a>
         <a href="{% url 'maintenance_plan_create' %}" class="btn btn-success">Створити планову роботу</a>
     </div>
 </div>

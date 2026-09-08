@@ -19,6 +19,7 @@ from .forms import (
     MaintenanceLogForm,
     MaintenanceLogPartUsageFormSet,
     MonthlyScheduleTransferForm,
+    MaintenancePlanBulkFormSet,
     MaintenancePlanForm,
     PartAnalyticalMappingFormSet,
     PartForm,
@@ -387,45 +388,41 @@ def build_monthly_schedule_context(
 
 
 def build_parts_list_context(search_query="", selected_machine=""):
-    machine_parts = (
-        MachinePart.objects.select_related("machine", "part")
+    machine_part_queryset = (
+        MachinePart.objects.select_related("machine")
         .filter(machine__is_active=True)
-        .order_by("part__name", "machine__name", "machine__inventory_number")
+        .order_by("machine__name", "machine__inventory_number")
     )
 
+    if selected_machine:
+        machine_part_queryset = machine_part_queryset.filter(machine_id=selected_machine)
+
+    parts_queryset = Part.objects.prefetch_related(
+        Prefetch("machine_parts", queryset=machine_part_queryset, to_attr="filtered_machine_parts")
+    ).order_by("name", "unit", "pk")
+
     if search_query:
-        machine_parts = machine_parts.filter(part__name__icontains=search_query)
+        parts_queryset = parts_queryset.filter(name__icontains=search_query)
 
     if selected_machine:
-        machine_parts = machine_parts.filter(machine_id=selected_machine)
-
-    grouped_parts = {}
-    for machine_part in machine_parts:
-        part_id = machine_part.part_id
-        if part_id not in grouped_parts:
-            grouped_parts[part_id] = {
-                "part": machine_part.part,
-                "total_quantity": 0,
-                "machines": [],
-            }
-
-        grouped_parts[part_id]["total_quantity"] += machine_part.quantity
-        grouped_parts[part_id]["machines"].append(machine_part.machine)
+        parts_queryset = parts_queryset.filter(machine_parts__machine_id=selected_machine).distinct()
 
     part_rows = []
-    for index, item in enumerate(grouped_parts.values(), start=1):
+    for index, part in enumerate(parts_queryset, start=1):
+        total_quantity = 0
         unique_machines = []
         seen_machine_ids = set()
-        for machine in item["machines"]:
-            if machine.id not in seen_machine_ids:
-                unique_machines.append(machine)
-                seen_machine_ids.add(machine.id)
+        for machine_part in part.filtered_machine_parts:
+            total_quantity += machine_part.quantity
+            if machine_part.machine_id not in seen_machine_ids:
+                unique_machines.append(machine_part.machine)
+                seen_machine_ids.add(machine_part.machine_id)
 
         part_rows.append(
             {
                 "index": index,
-                "part": item["part"],
-                "total_quantity": item["total_quantity"],
+                "part": part,
+                "total_quantity": total_quantity,
                 "machines": unique_machines,
             }
         )
@@ -436,6 +433,25 @@ def build_parts_list_context(search_query="", selected_machine=""):
         "selected_machine": selected_machine,
         "machines": Machine.objects.filter(is_active=True).order_by("name", "inventory_number"),
     }
+
+
+def get_part_delete_blockers(part):
+    blockers = []
+    machine_part_count = part.machine_parts.count()
+    usage_count = part.maintenance_log_usages.count()
+    source_mapping_count = part.analytical_mappings.count()
+    target_mapping_count = part.analytical_mapping_targets.count()
+
+    if machine_part_count:
+        blockers.append(f"прив’язана до обладнання: {machine_part_count}")
+    if usage_count:
+        blockers.append(f"використовувалась в історії робіт: {usage_count}")
+    if source_mapping_count:
+        blockers.append(f"має аналітичні відповідності: {source_mapping_count}")
+    if target_mapping_count:
+        blockers.append(f"входить в аналітичні відповідності інших запчастин: {target_mapping_count}")
+
+    return blockers
 
 
 def home(request):
@@ -1467,6 +1483,72 @@ def maintenance_plan_list(request):
     )
 
 
+def maintenance_plan_bulk_create(request):
+    today = timezone.localdate()
+    fallback_url = reverse("maintenance_plan_list")
+    next_url = get_safe_next_url(request, fallback_url)
+
+    if request.method == "POST":
+        formset = MaintenancePlanBulkFormSet(request.POST, prefix="plans")
+        if formset.is_valid():
+            cleaned_rows = [
+                form.cleaned_data
+                for form in formset
+                if form.cleaned_data and not form.cleaned_data.get("DELETE")
+            ]
+            existing_keys = {
+                (plan.planned_date, plan.machine_id, plan.maintenance_type_id)
+                for plan in MaintenancePlan.objects.filter(
+                    planned_date__in={row["planned_date"] for row in cleaned_rows},
+                    machine_id__in={row["machine"].pk for row in cleaned_rows},
+                    maintenance_type_id__in={row["maintenance_type"].pk for row in cleaned_rows},
+                ).exclude(status=MaintenancePlan.Status.CANCELLED)
+            }
+
+            plans_to_create = []
+            skipped_count = 0
+            for row in cleaned_rows:
+                row_key = (row["planned_date"], row["machine"].pk, row["maintenance_type"].pk)
+                if row_key in existing_keys:
+                    skipped_count += 1
+                    continue
+                plans_to_create.append(
+                    MaintenancePlan(
+                        planned_date=row["planned_date"],
+                        machine=row["machine"],
+                        maintenance_type=row["maintenance_type"],
+                        status=MaintenancePlan.Status.PLANNED,
+                    )
+                )
+                existing_keys.add(row_key)
+
+            if plans_to_create:
+                MaintenancePlan.objects.bulk_create(plans_to_create)
+                messages.success(
+                    request,
+                    f"Графік збережено: створено {len(plans_to_create)} запис(ів), пропущено {skipped_count}.",
+                )
+            else:
+                messages.info(request, "Нових позицій графіка не створено. Усі такі записи вже існують.")
+            return redirect(next_url)
+    else:
+        formset = MaintenancePlanBulkFormSet(prefix="plans")
+
+    return render(
+        request,
+        "maintenance_plan_bulk_form.html",
+        build_context(
+            "Сформувати графік ППР",
+            formset=formset,
+            form_title="Сформувати графік ППР по датах",
+            back_url=next_url,
+            cancel_url=next_url,
+            next_url=next_url,
+            today=today,
+        ),
+    )
+
+
 def maintenance_plan_create(request):
     fallback_url = reverse("maintenance_plan_list")
     next_url = get_safe_next_url(request, fallback_url)
@@ -1654,6 +1736,38 @@ def part_update(request, pk):
             form=form,
             mapping_formset=mapping_formset,
             form_title="Редагувати запчастину",
+            back_url=next_url,
+            cancel_url=next_url,
+            next_url=next_url,
+        ),
+    )
+
+
+def part_delete(request, pk):
+    part = get_object_or_404(Part, pk=pk)
+    next_url = get_safe_next_url(request, reverse("parts"))
+    blockers = get_part_delete_blockers(part)
+
+    if request.method == "POST":
+        if blockers:
+            messages.error(
+                request,
+                "Запчастину неможливо видалити, оскільки вона використовується в обладнанні, "
+                "історії робіт або аналітичних відповідностях."
+            )
+            return redirect(next_url)
+
+        part.delete()
+        messages.success(request, f"Запчастину «{part.name}» видалено.")
+        return redirect(next_url)
+
+    return render(
+        request,
+        "part_delete_confirm.html",
+        build_context(
+            "Видалити запчастину",
+            part=part,
+            blockers=blockers,
             back_url=next_url,
             cancel_url=next_url,
             next_url=next_url,
