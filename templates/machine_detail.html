@@ -9,7 +9,11 @@
         <h1 class="h2 mb-0">{{ machine.name }}</h1>
     </div>
     <div class="d-flex gap-2">
+        {% if return_url %}
+        <a href="{{ return_url }}" class="btn btn-outline-secondary">Повернутися до графіка</a>
+        {% else %}
         <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
+        {% endif %}
         <a href="{% url 'machine_detail_print' machine.pk %}" class="btn btn-outline-dark" target="_blank">Друк</a>
         <a href="{% url 'machine_update' machine.pk %}" class="btn btn-outline-primary">Редагувати</a>
         <a href="{% url 'machine_specification' machine.pk %}" class="btn btn-dark">ТТХ машини</a>
@@ -49,7 +53,7 @@
             <div class="card-body">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
                     <h2 class="h5 mb-0">Історія виконаних робіт</h2>
-                    <a href="{% url 'maintenance_log_create' machine.pk %}" class="btn btn-sm btn-success">
+                    <a href="{% url 'maintenance_log_create' machine.pk %}{{ next_query }}" class="btn btn-sm btn-success">
                         Додати запис про виконані роботи
                     </a>
                 </div>
@@ -87,7 +91,7 @@
                                 <td>{{ log.responsible_person.full_name }}</td>
                                 <td>{{ log.executor.full_name }}</td>
                                 <td class="text-end">
-                                    <a href="{% url 'maintenance_log_update' machine.pk log.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <a href="{% url 'maintenance_log_update' machine.pk log.pk %}{{ next_query }}" class="btn btn-sm btn-outline-primary">
                                         Редагувати
                                     </a>
                                     <a href="{% url 'maintenance_log_delete' machine.pk log.pk %}" class="btn btn-sm btn-outline-danger">

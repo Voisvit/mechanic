@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-danger">
+            <div class="card-body p-4">
+                <p class="text-secondary mb-1">Обладнання</p>
+                <h1 class="h3 mb-3">Підтвердження видалення</h1>
+                <p class="mb-2">Ви впевнені, що хочете остаточно видалити обладнання "{{ machine.name }}"?</p>
+                <p class="text-danger mb-4">Ця операція незворотна.</p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <a href="{{ cancel_url }}" class="btn btn-outline-secondary">Скасувати</a>
+                        <button type="submit" class="btn btn-danger">Остаточно видалити</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

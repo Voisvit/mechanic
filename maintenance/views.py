@@ -130,12 +130,40 @@ def get_effective_plan_status(plan, today):
     return plan.status
 
 
+def sync_maintenance_log_plan(maintenance_log, previous_plan_id=None):
+    if previous_plan_id and previous_plan_id != maintenance_log.related_plan_id:
+        previous_plan = MaintenancePlan.objects.select_for_update().get(pk=previous_plan_id)
+        if previous_plan.status == MaintenancePlan.Status.DONE and not previous_plan.maintenance_logs.exists():
+            previous_plan.status = MaintenancePlan.Status.PLANNED
+            previous_plan.save(update_fields=["status"])
+
+    if maintenance_log.related_plan_id:
+        MaintenancePlan.objects.filter(pk=maintenance_log.related_plan_id).exclude(
+            status__in=[MaintenancePlan.Status.DONE, MaintenancePlan.Status.CANCELLED]
+        ).update(status=MaintenancePlan.Status.DONE)
+
+
 def get_schedule_url(route_name, year, month, selected_machine="", route_kwargs=None):
     schedule_url = reverse(route_name, kwargs=route_kwargs or {})
     schedule_query = {"year": year, "month": month}
     if selected_machine:
         schedule_query["machine"] = selected_machine
     return f"{schedule_url}?{urlencode(schedule_query)}"
+
+
+def get_schedule_return_context(request, year, month):
+    query = request.GET.copy()
+    selected_day = query.pop("day", [""])[-1]
+    query["year"] = year
+    query["month"] = month
+    if not selected_day.isdigit() or not 1 <= int(selected_day) <= calendar.monthrange(year, month)[1]:
+        selected_day = ""
+    return f"{request.path}?{query.urlencode()}", selected_day
+
+
+def get_schedule_machine_return_url(schedule_url, machine_id, day=""):
+    day_query = f"&day={day}" if day else ""
+    return f"{schedule_url}{day_query}#machine-{machine_id}"
 
 
 def build_transfer_url(
@@ -213,6 +241,10 @@ def build_monthly_schedule_context(
     route_kwargs=None,
     allow_cell_create=True,
     group_by_planned_day=False,
+    exclude_overdue=False,
+    schedule_return_url="",
+    selected_day="",
+    filter_date=None,
 ):
     days_in_month = calendar.monthrange(year, month)[1]
     start_date = date(year, month, 1)
@@ -230,6 +262,11 @@ def build_monthly_schedule_context(
     machines_queryset = Machine.objects.filter(is_active=True)
     if include_inactive_with_activity and machine_activity_ids:
         machines_queryset = Machine.objects.filter(Q(is_active=True) | Q(id__in=machine_activity_ids))
+    if filter_date:
+        planned_machine_ids = MaintenancePlan.objects.filter(planned_date=filter_date).exclude(
+            status=MaintenancePlan.Status.CANCELLED
+        ).values_list("machine_id", flat=True)
+        machines_queryset = machines_queryset.filter(pk__in=planned_machine_ids)
 
     machines_queryset = machines_queryset.order_by("name", "inventory_number")
     if selected_machine:
@@ -242,6 +279,10 @@ def build_monthly_schedule_context(
     plans_queryset = MaintenancePlan.objects.filter(planned_date__range=(start_date, end_date))
     if not include_inactive_with_activity:
         plans_queryset = plans_queryset.filter(machine__is_active=True)
+    if exclude_overdue:
+        plans_queryset = plans_queryset.filter(
+            Q(planned_date__gte=today) | Q(status=MaintenancePlan.Status.DONE)
+        ).exclude(status=MaintenancePlan.Status.OVERDUE)
 
     plans = (
         plans_queryset
@@ -278,6 +319,11 @@ def build_monthly_schedule_context(
 
     schedule_rows = []
     for index, machine in enumerate(machines, start=1):
+        machine_detail_url = reverse("machine_detail", kwargs={"pk": machine.pk})
+        if schedule_return_url:
+            machine_detail_url += "?" + urlencode(
+                {"next": get_schedule_machine_return_url(schedule_return_url, machine.pk, selected_day)}
+            )
         cells = []
         monthly_codes = []
         done_count = 0
@@ -341,6 +387,12 @@ def build_monthly_schedule_context(
                                     "maintenance_type": plan.maintenance_type_id,
                                     "related_plan": plan.pk,
                                 }
+                            )
+                            + (
+                                "&" + urlencode(
+                                    {"next": get_schedule_machine_return_url(schedule_return_url, machine.pk, day)}
+                                )
+                                if schedule_return_url else ""
                             ),
                             "cancel_url": reverse("maintenance_plan_cancel", kwargs={"pk": plan.pk})
                             + "?"
@@ -366,6 +418,7 @@ def build_monthly_schedule_context(
             {
                 "index": index,
                 "machine": machine,
+                "machine_detail_url": machine_detail_url,
                 "repair_types": ", ".join(unique_codes) or "-",
                 "cells": cells,
                 "notes": " | ".join(notes) or "-",
@@ -376,6 +429,7 @@ def build_monthly_schedule_context(
         "selected_month": month,
         "selected_year": year,
         "selected_machine": selected_machine,
+        "selected_date": filter_date,
         "month_choices": get_month_choices(),
         "year_choices": get_year_choices(today.year),
         "machines_for_filter": Machine.objects.filter(is_active=True).order_by("name", "inventory_number"),
@@ -469,12 +523,26 @@ def home(request):
         year = today.year
         month = today.month
 
+    selected_date = None
+    date_param = request.GET.get("date", "").strip()
+    if date_param:
+        try:
+            selected_date = date.fromisoformat(date_param)
+        except ValueError:
+            pass
+    if selected_date:
+        year = selected_date.year
+        month = selected_date.month
+
     month_label = get_month_label_uk(month)
     default_target_year, default_target_month = get_next_month_period(year, month)
     document_heading = (
         "Графік проведення планово-попереджувального ремонту та технічного "
         f"обслуговування обладнання підготовчої дільниці №2 на {month_label} {year} року"
     )
+    schedule_return_url, selected_day = get_schedule_return_context(request, year, month)
+    if selected_date and not selected_day:
+        selected_day = str(selected_date.day)
 
     return render(
         request,
@@ -488,8 +556,12 @@ def home(request):
                 selected_machine=selected_machine,
                 route_name="home",
                 group_by_planned_day=True,
+                schedule_return_url=schedule_return_url,
+                selected_day=selected_day,
+                filter_date=selected_date,
             ),
             home_mode=True,
+            clear_date_url=get_schedule_url("home", year, month),
             schedule_heading=document_heading,
             transfer_url=build_transfer_url(
                 year,
@@ -649,6 +721,37 @@ def machine_restore(request, pk):
     )
 
 
+def machine_delete(request, pk):
+    if request.method == "POST":
+        with transaction.atomic():
+            machine = get_object_or_404(Machine.objects.select_for_update(), pk=pk, is_active=False)
+            has_related_records = any(
+                relation.related_model._base_manager.filter(**{relation.field.name: machine}).exists()
+                for relation in Machine._meta.related_objects
+            )
+            if has_related_records:
+                messages.error(
+                    request,
+                    "Обладнання неможливо видалити, оскільки воно має пов’язані записи. "
+                    "Для збереження історії залиште його неактивним.",
+                )
+            else:
+                machine.delete()
+                messages.success(request, "Обладнання остаточно видалено.")
+        return redirect("inactive_equipment")
+
+    machine = get_object_or_404(Machine, pk=pk, is_active=False)
+    return render(
+        request,
+        "machine_delete_confirm.html",
+        build_context(
+            "Видалити машину",
+            machine=machine,
+            cancel_url=reverse("inactive_equipment"),
+        ),
+    )
+
+
 def machine_detail(request, pk):
     machine = get_object_or_404(
         Machine.objects.prefetch_related(
@@ -672,6 +775,7 @@ def machine_detail(request, pk):
             queryset=MaintenanceLogPartUsage.objects.select_related("part").order_by("part__name"),
         )
     )
+    return_url = get_safe_next_url(request, "")
 
     return render(
         request,
@@ -681,6 +785,8 @@ def machine_detail(request, pk):
             machine=machine,
             maintenance_logs=maintenance_logs,
             back_url=reverse("equipment"),
+            return_url=return_url,
+            next_query="?" + urlencode({"next": return_url}) if return_url else "",
         ),
     )
 
@@ -722,9 +828,24 @@ def machine_detail_print(request, pk):
 
 def maintenance_log_create(request, pk):
     machine = get_object_or_404(Machine, pk=pk, is_active=True)
+    return_url = get_safe_next_url(request, "")
+    detail_url = reverse("machine_detail", kwargs={"pk": machine.pk})
+    back_url = detail_url + "?" + urlencode({"next": return_url}) if return_url else detail_url
+    selected_plan_id = (
+        request.GET.get("related_plan")
+        or request.GET.get("plan_id")
+        or request.POST.get("selected_plan_id")
+    )
+    selected_plan = None
+    if selected_plan_id:
+        selected_plan = get_object_or_404(
+            MaintenancePlan.objects.exclude(status=MaintenancePlan.Status.CANCELLED),
+            pk=selected_plan_id,
+            machine=machine,
+        )
 
     if request.method == "POST":
-        form = MaintenanceLogForm(request.POST, machine=machine)
+        form = MaintenanceLogForm(request.POST, machine=machine, selected_plan=selected_plan)
         usage_formset = MaintenanceLogPartUsageFormSet(request.POST, prefix="used_parts")
         if form.is_valid() and usage_formset.is_valid():
             with transaction.atomic():
@@ -733,35 +854,25 @@ def maintenance_log_create(request, pk):
                 maintenance_log.save()
                 usage_formset.instance = maintenance_log
                 usage_formset.save()
-                if maintenance_log.related_plan:
-                    maintenance_log.related_plan.status = MaintenancePlan.Status.DONE
-                    maintenance_log.related_plan.save(update_fields=["status"])
-            return redirect("machine_detail", pk=machine.pk)
+                sync_maintenance_log_plan(maintenance_log)
+            return redirect(return_url or detail_url)
     else:
         initial = {"performed_date": timezone.localdate()}
-        related_plan_id = request.GET.get("related_plan")
         maintenance_type_id = request.GET.get("maintenance_type")
 
-        if related_plan_id:
-            related_plan = get_object_or_404(
-                MaintenancePlan.objects.exclude(
-                    status__in=[MaintenancePlan.Status.DONE, MaintenancePlan.Status.CANCELLED]
-                ),
-                pk=related_plan_id,
-                machine=machine,
-            )
-            initial["related_plan"] = related_plan
-            initial["maintenance_type"] = related_plan.maintenance_type
+        if selected_plan:
+            initial["performed_date"] = selected_plan.planned_date
+            initial["related_plan"] = selected_plan
+            initial["maintenance_type"] = selected_plan.maintenance_type
         elif maintenance_type_id:
             initial["maintenance_type"] = maintenance_type_id
 
-        form = MaintenanceLogForm(initial=initial, machine=machine)
+        form = MaintenanceLogForm(initial=initial, machine=machine, selected_plan=selected_plan)
         usage_formset = MaintenanceLogPartUsageFormSet(prefix="used_parts")
 
     if request.method == "POST" and "usage_formset" not in locals():
         usage_formset = MaintenanceLogPartUsageFormSet(request.POST, prefix="used_parts")
 
-    detail_url = reverse("machine_detail", kwargs={"pk": machine.pk})
     return render(
         request,
         "maintenance_log_form.html",
@@ -771,8 +882,10 @@ def maintenance_log_create(request, pk):
             form=form,
             usage_formset=usage_formset,
             form_title="Додати запис про виконані роботи",
-            back_url=detail_url,
-            cancel_url=detail_url,
+            back_url=back_url,
+            cancel_url=back_url,
+            return_url=return_url,
+            selected_plan=selected_plan,
         ),
     )
 
@@ -780,8 +893,12 @@ def maintenance_log_create(request, pk):
 def maintenance_log_update(request, pk, log_pk):
     machine = get_object_or_404(Machine, pk=pk, is_active=True)
     maintenance_log = get_object_or_404(MaintenanceLog, pk=log_pk, machine=machine)
+    return_url = get_safe_next_url(request, "")
+    detail_url = reverse("machine_detail", kwargs={"pk": machine.pk})
+    back_url = detail_url + "?" + urlencode({"next": return_url}) if return_url else detail_url
 
     if request.method == "POST":
+        previous_plan_id = maintenance_log.related_plan_id
         form = MaintenanceLogForm(request.POST, instance=maintenance_log, machine=machine)
         usage_formset = MaintenanceLogPartUsageFormSet(
             request.POST,
@@ -792,10 +909,8 @@ def maintenance_log_update(request, pk, log_pk):
             with transaction.atomic():
                 maintenance_log = form.save()
                 usage_formset.save()
-                if maintenance_log.related_plan:
-                    maintenance_log.related_plan.status = MaintenancePlan.Status.DONE
-                    maintenance_log.related_plan.save(update_fields=["status"])
-            return redirect("machine_detail", pk=machine.pk)
+                sync_maintenance_log_plan(maintenance_log, previous_plan_id)
+            return redirect(return_url or detail_url)
     else:
         form = MaintenanceLogForm(instance=maintenance_log, machine=machine)
         usage_formset = MaintenanceLogPartUsageFormSet(instance=maintenance_log, prefix="used_parts")
@@ -807,7 +922,6 @@ def maintenance_log_update(request, pk, log_pk):
             prefix="used_parts",
         )
 
-    detail_url = reverse("machine_detail", kwargs={"pk": machine.pk})
     return render(
         request,
         "maintenance_log_form.html",
@@ -818,8 +932,9 @@ def maintenance_log_update(request, pk, log_pk):
             form=form,
             usage_formset=usage_formset,
             form_title="Редагувати запис про виконані роботи",
-            back_url=detail_url,
-            cancel_url=detail_url,
+            back_url=back_url,
+            cancel_url=back_url,
+            return_url=return_url,
         ),
     )
 
@@ -1047,7 +1162,9 @@ def monthly_schedule_print(request):
         year = today.year
         month = today.month
 
-    context = build_monthly_schedule_context(year, month, today, selected_machine)
+    context = build_monthly_schedule_context(
+        year, month, today, selected_machine, group_by_planned_day=True, exclude_overdue=True
+    )
     return render(
         request,
         "print_monthly_schedule.html",
@@ -1116,6 +1233,7 @@ def archive_month(request, year, month):
     if month < 1 or month > 12:
         month = today.month
     default_target_year, default_target_month = get_next_month_period(year, month)
+    schedule_return_url, selected_day = get_schedule_return_context(request, year, month)
 
     return render(
         request,
@@ -1130,6 +1248,8 @@ def archive_month(request, year, month):
                 route_name="archive_month",
                 route_kwargs={"year": year, "month": month},
                 allow_cell_create=False,
+                schedule_return_url=schedule_return_url,
+                selected_day=selected_day,
             ),
             archive_mode=True,
             archive_year=year,

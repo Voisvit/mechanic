@@ -25,11 +25,17 @@
                         <p class="text-secondary mb-1">{{ machine.name }}</p>
                         <h1 class="h3 mb-0">{{ form_title }}</h1>
                     </div>
+                    {% if return_url %}
+                    <a href="{{ return_url }}" class="btn btn-outline-secondary">Повернутися до графіка</a>
+                    {% else %}
                     <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
+                    {% endif %}
                 </div>
 
                 <form method="post" novalidate>
                     {% csrf_token %}
+                    {% if return_url %}<input type="hidden" name="next" value="{{ return_url }}">{% endif %}
+                    {% if selected_plan %}<input type="hidden" name="selected_plan_id" value="{{ selected_plan.pk }}">{% endif %}
                     <div class="row g-3">
                         {% for field in form %}
                         <div class="{% if field.name == 'work_description' %}col-12{% else %}col-md-6{% endif %}">

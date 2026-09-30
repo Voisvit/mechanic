@@ -34,6 +34,7 @@ urlpatterns = [
     path('equipment/<int:pk>/edit/', protected(views.machine_update), name='machine_update'),
     path('equipment/<int:pk>/deactivate/', protected(views.machine_deactivate), name='machine_deactivate'),
     path('equipment/<int:pk>/restore/', protected(views.machine_restore), name='machine_restore'),
+    path('equipment/<int:pk>/delete/', protected(views.machine_delete), name='machine_delete'),
     path('equipment/<int:pk>/logs/add/', protected(views.maintenance_log_create), name='maintenance_log_create'),
     path('equipment/<int:pk>/logs/<int:log_pk>/edit/', protected(views.maintenance_log_update), name='maintenance_log_update'),
     path('equipment/<int:pk>/logs/<int:log_pk>/delete/', protected(views.maintenance_log_delete), name='maintenance_log_delete'),

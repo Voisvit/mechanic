@@ -46,6 +46,7 @@
                     <td>{{ machine.location|default:"-" }}</td>
                     <td class="text-end">
                         <a href="{% url 'machine_restore' machine.pk %}" class="btn btn-sm btn-success">Відновити</a>
+                        <a href="{% url 'machine_delete' machine.pk %}" class="btn btn-sm btn-danger">Видалити</a>
                     </td>
                 </tr>
                 {% empty %}

@@ -77,6 +77,7 @@
     }
 
     .schedule-table {
+        width: 100%;
         table-layout: fixed;
         font-size: 10px;
     }
@@ -87,21 +88,29 @@
         text-align: center;
     }
 
+    .number-col {
+        width: 25px;
+    }
+
     .machine-col {
         width: 180px;
         text-align: left !important;
     }
 
     .repair-col {
-        width: 100px;
+        width: 85px;
     }
 
     .notes-col {
-        width: 120px;
+        width: 90px;
     }
 
-    .day-col {
-        width: 22px;
+    .schedule-table .day-col {
+        padding: 2px 1px;
+        font-size: 8px;
+        line-height: 1.1;
+        overflow-wrap: anywhere;
+        word-break: break-word;
     }
 
     .monthly-roles {
@@ -156,6 +165,13 @@
 
 {% block print_content %}
 <table class="print-table schedule-table">
+    <colgroup>
+        <col class="number-col">
+        <col class="machine-col">
+        <col class="repair-col">
+        <col span="{{ days_in_month }}">
+        <col class="notes-col">
+    </colgroup>
     <thead>
         <tr>
             <th rowspan="2">№</th>
@@ -177,9 +193,9 @@
             <td class="machine-col">{{ row.machine.name }}</td>
             <td>{{ row.repair_types }}</td>
             {% for cell in row.cells %}
-            <td class="{{ cell.status_class }}">{{ cell.codes }}</td>
+            <td class="day-col">{{ cell.codes }}</td>
             {% endfor %}
-            <td>{{ row.notes }}</td>
+            <td></td>
         </tr>
         {% endfor %}
     </tbody>

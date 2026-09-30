@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from django.forms import BaseFormSet, BaseInlineFormSet, formset_factory, inlineformset_factory
 from django.db.utils import OperationalError, ProgrammingError
 
@@ -238,7 +239,7 @@ class MaintenanceLogForm(BootstrapMixin, forms.ModelForm):
         ),
     )
 
-    def __init__(self, *args, machine=None, **kwargs):
+    def __init__(self, *args, machine=None, selected_plan=None, **kwargs):
         self.machine = machine
         super().__init__(*args, **kwargs)
         self.fields["responsible_person"].queryset = Person.objects.filter(is_active=True).order_by("full_name")
@@ -252,9 +253,14 @@ class MaintenanceLogForm(BootstrapMixin, forms.ModelForm):
 
         active_plan_queryset = MaintenancePlan.objects.none()
         if self.machine is not None:
+            available_plans = ~Q(status__in=[MaintenancePlan.Status.DONE, MaintenancePlan.Status.CANCELLED])
+            if self.instance.related_plan_id:
+                available_plans |= Q(pk=self.instance.related_plan_id)
+            if selected_plan:
+                available_plans |= Q(pk=selected_plan.pk)
             active_plan_queryset = (
                 MaintenancePlan.objects.filter(machine=self.machine)
-                .exclude(status__in=[MaintenancePlan.Status.DONE, MaintenancePlan.Status.CANCELLED])
+                .filter(available_plans)
                 .select_related("maintenance_type")
                 .order_by("planned_date", "maintenance_type__code")
             )
