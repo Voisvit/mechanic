@@ -15,9 +15,32 @@
     </div>
 </div>
 
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-sm-6 col-md-3">
+                <label for="analytics-date-from" class="form-label">Дата від</label>
+                <input type="date" id="analytics-date-from" name="date_from" value="{{ period.date_from_raw }}" class="form-control">
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <label for="analytics-date-to" class="form-label">Дата до</label>
+                <input type="date" id="analytics-date-to" name="date_to" value="{{ period.date_to_raw }}" class="form-control">
+            </div>
+            <div class="col-md-6 d-flex gap-2">
+                <button type="submit" class="btn btn-dark">Застосувати</button>
+                <a href="{% url 'machine_analytics' machine.pk %}" class="btn btn-outline-secondary">Скинути період</a>
+            </div>
+        </form>
+        {% if period.error %}
+        <div class="alert alert-danger mt-3 mb-0">{{ period.error }}</div>
+        {% endif %}
+    </div>
+</div>
+
 <div class="card shadow-sm">
     <div class="card-body">
-        <h2 class="h5 mb-3">Використання запчастин та матеріалів</h2>
+        <h2 class="h5 mb-1">Використання запчастин та матеріалів</h2>
+        <p class="text-secondary mb-3">Період аналізу: {{ period.label }}</p>
         {% if ignored_analytics_items %}
         <div class="alert alert-warning">
             Частина використаних позицій не була зарахована в аналітику, оскільки вони або їх аналітичні відповідності не прив’язані до ТТХ цієї машини:

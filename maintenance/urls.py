@@ -62,6 +62,7 @@ urlpatterns = [
     path('parts/<int:pk>/edit/', protected(views.part_update), name='part_update'),
     path('parts/<int:pk>/delete/', protected(views.part_delete), name='part_delete'),
     path('parts/print/', protected(views.parts_print), name='parts_print'),
+    path('parts/export/', protected(views.parts_export_xlsx), name='parts_export_xlsx'),
     path('references/', protected(views.references), name='references'),
     path('references/inactive/', protected(views.inactive_persons), name='inactive_persons'),
     path('references/add/', protected(views.person_create), name='person_create'),

@@ -7,10 +7,12 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.db import transaction
 from django.db.models import Prefetch, Q
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.http import require_POST
 
 from .forms import (
     MachineForm,
@@ -441,7 +443,51 @@ def build_monthly_schedule_context(
     }
 
 
-def build_parts_list_context(search_query="", selected_machine=""):
+def parse_id_list(raw_values):
+    """Повертає множину int-ID або кидає Http404, якщо є нечислове значення."""
+    try:
+        return {int(value) for value in raw_values}
+    except (TypeError, ValueError):
+        raise Http404("Некоректний ідентифікатор.")
+
+
+def get_analytics_period(request):
+    date_from_raw = request.GET.get("date_from", "").strip()
+    date_to_raw = request.GET.get("date_to", "").strip()
+    period = {
+        "date_from": None,
+        "date_to": None,
+        "date_from_raw": date_from_raw,
+        "date_to_raw": date_to_raw,
+        "error": "",
+        "label": "За весь час",
+    }
+    if not date_from_raw and not date_to_raw:
+        return period
+
+    try:
+        date_from = date.fromisoformat(date_from_raw) if date_from_raw else None
+        date_to = date.fromisoformat(date_to_raw) if date_to_raw else None
+    except ValueError:
+        period["error"] = "Некоректний формат дати. Період не застосовано, показано дані за весь час."
+        return period
+
+    if date_from and date_to and date_from > date_to:
+        period["error"] = "«Дата від» не може бути пізнішою за «Дата до». Період не застосовано, показано дані за весь час."
+        return period
+
+    period["date_from"] = date_from
+    period["date_to"] = date_to
+    if date_from and date_to:
+        period["label"] = f"{date_from:%d.%m.%Y} — {date_to:%d.%m.%Y}"
+    elif date_from:
+        period["label"] = f"з {date_from:%d.%m.%Y}"
+    else:
+        period["label"] = f"по {date_to:%d.%m.%Y}"
+    return period
+
+
+def build_parts_list_context(search_query="", selected_machine="", part_ids=None):
     machine_part_queryset = (
         MachinePart.objects.select_related("machine")
         .filter(machine__is_active=True)
@@ -460,6 +506,9 @@ def build_parts_list_context(search_query="", selected_machine=""):
 
     if selected_machine:
         parts_queryset = parts_queryset.filter(machine_parts__machine_id=selected_machine).distinct()
+
+    if part_ids is not None:
+        parts_queryset = parts_queryset.filter(pk__in=part_ids)
 
     part_rows = []
     for index, part in enumerate(parts_queryset, start=1):
@@ -815,6 +864,14 @@ def machine_detail_print(request, pk):
         )
     ).order_by("performed_date", "created_at", "pk")
 
+    log_ids_raw = request.GET.get("log_ids", "").strip()
+    if log_ids_raw:
+        log_ids = parse_id_list(log_ids_raw.split(","))
+        maintenance_logs = maintenance_logs.filter(pk__in=log_ids)
+        # Усі передані ID мають існувати й належати цій машині, інакше 404.
+        if maintenance_logs.count() != len(log_ids):
+            raise Http404("Запис про виконані роботи не знайдено для цієї машини.")
+
     return render(
         request,
         "print_machine_detail.html",
@@ -984,6 +1041,7 @@ def machine_specification(request, pk):
 
 def machine_analytics(request, pk):
     machine = get_object_or_404(Machine, pk=pk)
+    period = get_analytics_period(request)
 
     machine_parts = list(
         MachinePart.objects.filter(machine=machine)
@@ -1005,8 +1063,14 @@ def machine_analytics(request, pk):
             }
         )
 
+    usage_queryset = MaintenanceLogPartUsage.objects.filter(maintenance_log__machine=machine)
+    if period["date_from"]:
+        usage_queryset = usage_queryset.filter(maintenance_log__performed_date__gte=period["date_from"])
+    if period["date_to"]:
+        usage_queryset = usage_queryset.filter(maintenance_log__performed_date__lte=period["date_to"])
+
     usage_entries = (
-        MaintenanceLogPartUsage.objects.filter(maintenance_log__machine=machine)
+        usage_queryset
         .select_related("part")
         .prefetch_related(
             Prefetch(
@@ -1051,6 +1115,7 @@ def machine_analytics(request, pk):
             machine=machine,
             analytics_rows=analytics_rows,
             ignored_analytics_items=sorted(set(ignored_analytics_items)),
+            period=period,
             back_url=reverse("machine_detail", kwargs={"pk": machine.pk}),
         ),
     )
@@ -1906,6 +1971,93 @@ def parts_print(request):
             **build_parts_list_context(search_query, selected_machine),
         ),
     )
+
+
+def build_parts_workbook(part_rows, subtitle):
+    # Імпорт тут, щоб відсутній openpyxl не ламав увесь застосунок, а лише експорт.
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    headers = [
+        "№",
+        "Назва запчастини / агрегату",
+        "Опис",
+        "Конструктивна кількість",
+        "Одиниця виміру",
+        "Де використовується",
+    ]
+    header_row = 3
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Запчастини"
+    sheet.cell(row=1, column=1, value="Загальний перелік запчастин").font = Font(bold=True, size=14)
+    sheet.cell(row=2, column=1, value=subtitle)
+    for column, header in enumerate(headers, start=1):
+        cell = sheet.cell(row=header_row, column=column, value=header)
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(vertical="center", wrap_text=True)
+
+    for row in part_rows:
+        sheet.append(
+            [
+                row["index"],
+                row["part"].name,
+                row["part"].description,
+                row["total_quantity"],
+                row["part"].unit,
+                ", ".join(machine.name for machine in row["machines"]),
+            ]
+        )
+
+    last_row = sheet.max_row
+    sheet.auto_filter.ref = f"A{header_row}:F{max(last_row, header_row)}"
+    sheet.freeze_panes = f"A{header_row + 1}"
+
+    max_widths = [6, 50, 50, 16, 14, 60]
+    for column, max_width in enumerate(max_widths, start=1):
+        letter = sheet.cell(row=header_row, column=column).column_letter
+        values = [sheet.cell(row=row_number, column=column).value for row_number in range(header_row, last_row + 1)]
+        longest = max((len(str(value)) for value in values if value is not None), default=0)
+        sheet.column_dimensions[letter].width = min(max(longest + 2, 8), max_width)
+        for row_number in range(header_row + 1, last_row + 1):
+            sheet.cell(row=row_number, column=column).alignment = Alignment(vertical="top", wrap_text=True)
+
+    return workbook
+
+
+@require_POST
+def parts_export_xlsx(request):
+    search_query = request.POST.get("q", "").strip()
+    selected_machine = request.POST.get("machine", "").strip()
+    part_ids = None
+    raw_part_ids = request.POST.getlist("part_ids")
+    if raw_part_ids:
+        part_ids = parse_id_list(raw_part_ids)
+
+    context = build_parts_list_context(search_query, selected_machine, part_ids)
+    # Вибрані позиції мають існувати й входити в поточний відфільтрований список.
+    if part_ids is not None and len(context["part_rows"]) != len(part_ids):
+        raise Http404("Запчастину не знайдено в поточному переліку.")
+
+    now = timezone.localtime()
+    subtitle_parts = [f"Сформовано: {now:%d.%m.%Y %H:%M}"]
+    if search_query:
+        subtitle_parts.append(f"Пошук: «{search_query}»")
+    if selected_machine:
+        machine = next((m for m in context["machines"] if str(m.pk) == selected_machine), None)
+        if machine:
+            subtitle_parts.append(f"Обладнання: {machine.name}")
+    if part_ids is not None:
+        subtitle_parts.append(f"Вибрано позицій: {len(part_ids)}")
+
+    workbook = build_parts_workbook(context["part_rows"], "; ".join(subtitle_parts))
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="spare_parts_{now:%Y-%m-%d_%H%M}.xlsx"'
+    workbook.save(response)
+    return response
 
 
 def references(request):

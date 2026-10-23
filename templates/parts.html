@@ -44,6 +44,12 @@
     <div class="d-flex gap-2">
         <a href="{% url 'part_create' %}" class="btn btn-success">Створити запчастину</a>
         <a href="{% url 'parts_print' %}?q={{ search_query }}{% if selected_machine %}&machine={{ selected_machine }}{% endif %}" class="btn btn-outline-dark" target="_blank">Друк</a>
+        <form method="post" action="{% url 'parts_export_xlsx' %}" id="parts-export-form">
+            {% csrf_token %}
+            <input type="hidden" name="q" value="{{ search_query }}">
+            <input type="hidden" name="machine" value="{{ selected_machine }}">
+            <button type="submit" class="btn btn-outline-success" title="Експортуються позначені позиції, або весь поточний список, якщо нічого не позначено">Експорт в Excel</button>
+        </form>
     </div>
 </div>
 
@@ -52,6 +58,7 @@
         <table class="table table-hover align-middle mb-0 sticky-table">
             <thead class="table-light">
                 <tr>
+                    <th class="text-center" title="Вибрати для експорту в Excel">Експорт</th>
                     <th>№</th>
                     <th>ID</th>
                     <th>Назва запчастини / агрегату</th>
@@ -65,6 +72,9 @@
             <tbody>
                 {% for row in part_rows %}
                 <tr>
+                    <td class="text-center">
+                        <input type="checkbox" class="form-check-input" name="part_ids" value="{{ row.part.pk }}" form="parts-export-form" aria-label="Вибрати для експорту">
+                    </td>
                     <td>{{ row.index }}</td>
                     <td class="text-secondary">{{ row.part.pk }}</td>
                     <td class="fw-semibold">{{ row.part.name }}</td>
@@ -93,7 +103,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center py-4 text-secondary">
+                    <td colspan="9" class="text-center py-4 text-secondary">
                         Запчастини за вибраними фільтрами не знайдені.
                     </td>
                 </tr>

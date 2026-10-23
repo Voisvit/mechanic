@@ -14,7 +14,7 @@
         {% else %}
         <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
         {% endif %}
-        <a href="{% url 'machine_detail_print' machine.pk %}" class="btn btn-outline-dark" target="_blank">Друк</a>
+        <a href="{% url 'machine_detail_print' machine.pk %}" id="machine-print-link" class="btn btn-outline-dark" target="_blank" title="Друкуються позначені записи, або всі, якщо нічого не позначено">Друк</a>
         <a href="{% url 'machine_update' machine.pk %}" class="btn btn-outline-primary">Редагувати</a>
         <a href="{% url 'machine_specification' machine.pk %}" class="btn btn-dark">ТТХ машини</a>
         <a href="{% url 'machine_analytics' machine.pk %}" class="btn btn-outline-secondary">Аналітика</a>
@@ -58,10 +58,12 @@
                     </a>
                 </div>
                 {% if maintenance_logs %}
+                <p class="small text-secondary mb-2">Позначте записи для вибіркового друку. Якщо нічого не позначено — друкуються всі записи.</p>
                 <div class="table-responsive">
                     <table class="table align-middle mb-0">
                         <thead class="table-light">
                             <tr>
+                                <th class="text-center" title="Вибрати для друку">Друк</th>
                                 <th>Дата</th>
                                 <th>Тип ТО</th>
                                 <th>Опис робіт</th>
@@ -73,6 +75,9 @@
                         <tbody>
                             {% for log in maintenance_logs %}
                             <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input log-print-checkbox" value="{{ log.pk }}" aria-label="Вибрати запис для друку">
+                                </td>
                                 <td>{{ log.performed_date|date:"d.m.Y" }}</td>
                                 <td>{{ log.maintenance_type.name }}</td>
                                 <td>
@@ -110,4 +115,21 @@
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        const printLink = document.getElementById("machine-print-link");
+        printLink.addEventListener("click", function () {
+            const selectedIds = Array.from(document.querySelectorAll(".log-print-checkbox:checked"))
+                .map(function (checkbox) { return checkbox.value; });
+            const printUrl = new URL(printLink.href, window.location.origin);
+            if (selectedIds.length) {
+                printUrl.searchParams.set("log_ids", selectedIds.join(","));
+            } else {
+                printUrl.searchParams.delete("log_ids");
+            }
+            printLink.href = printUrl.pathname + printUrl.search;
+        });
+    })();
+</script>
 {% endblock %}
