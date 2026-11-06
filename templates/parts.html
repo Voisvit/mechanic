@@ -42,7 +42,9 @@
         <button type="submit" class="btn btn-dark">Фільтрувати</button>
     </form>
     <div class="d-flex gap-2">
+        {% if can_edit %}
         <a href="{% url 'part_create' %}" class="btn btn-success">Створити запчастину</a>
+        {% endif %}
         <a href="{% url 'parts_print' %}?q={{ search_query }}{% if selected_machine %}&machine={{ selected_machine }}{% endif %}" class="btn btn-outline-dark" target="_blank">Друк</a>
         <form method="post" action="{% url 'parts_export_xlsx' %}" id="parts-export-form">
             {% csrf_token %}
@@ -66,7 +68,9 @@
                     <th>Загальна кількість</th>
                     <th>Одиниця виміру</th>
                     <th>Де використовується</th>
+                    {% if can_edit %}
                     <th class="text-end">Дії</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -92,6 +96,7 @@
                         —
                         {% endif %}
                     </td>
+                    {% if can_edit %}
                     <td class="text-end">
                         <a href="{% url 'part_update' row.part.pk %}?next={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary mb-1">
                             Редагувати
@@ -100,10 +105,11 @@
                             Видалити
                         </a>
                     </td>
+                    {% endif %}
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="text-center py-4 text-secondary">
+                    <td colspan="{% if can_edit %}9{% else %}8{% endif %}" class="text-center py-4 text-secondary">
                         Запчастини за вибраними фільтрами не знайдені.
                     </td>
                 </tr>

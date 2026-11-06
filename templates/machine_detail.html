@@ -15,10 +15,14 @@
         <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
         {% endif %}
         <a href="{% url 'machine_detail_print' machine.pk %}" id="machine-print-link" class="btn btn-outline-dark" target="_blank" title="Друкуються позначені записи, або всі, якщо нічого не позначено">Друк</a>
+        {% if can_edit %}
         <a href="{% url 'machine_update' machine.pk %}" class="btn btn-outline-primary">Редагувати</a>
+        {% endif %}
         <a href="{% url 'machine_specification' machine.pk %}" class="btn btn-dark">ТТХ машини</a>
         <a href="{% url 'machine_analytics' machine.pk %}" class="btn btn-outline-secondary">Аналітика</a>
+        {% if can_edit %}
         <a href="{% url 'machine_deactivate' machine.pk %}" class="btn btn-outline-danger">Деактивувати</a>
+        {% endif %}
     </div>
 </div>
 
@@ -53,9 +57,11 @@
             <div class="card-body">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
                     <h2 class="h5 mb-0">Історія виконаних робіт</h2>
+                    {% if can_edit %}
                     <a href="{% url 'maintenance_log_create' machine.pk %}{{ next_query }}" class="btn btn-sm btn-success">
                         Додати запис про виконані роботи
                     </a>
+                    {% endif %}
                 </div>
                 {% if maintenance_logs %}
                 <p class="small text-secondary mb-2">Позначте записи для вибіркового друку. Якщо нічого не позначено — друкуються всі записи.</p>
@@ -69,7 +75,9 @@
                                 <th>Опис робіт</th>
                                 <th>Відповідальний</th>
                                 <th>Виконавець</th>
+                                {% if can_edit %}
                                 <th class="text-end">Дії</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -95,6 +103,7 @@
                                 </td>
                                 <td>{{ log.responsible_person.full_name }}</td>
                                 <td>{{ log.executor.full_name }}</td>
+                                {% if can_edit %}
                                 <td class="text-end">
                                     <a href="{% url 'maintenance_log_update' machine.pk log.pk %}{{ next_query }}" class="btn btn-sm btn-outline-primary">
                                         Редагувати
@@ -103,6 +112,7 @@
                                         Видалити
                                     </a>
                                 </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         </tbody>

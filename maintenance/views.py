@@ -61,6 +61,10 @@ def build_print_context(document_title, **kwargs):
     }
 
 
+def permission_denied(request, exception=None):
+    return render(request, "403.html", build_context("Немає доступу"), status=403)
+
+
 def logout_view(request):
     logout(request)
     return redirect("login")

@@ -18,7 +18,9 @@
                 <tr>
                     <th>ПІБ</th>
                     <th>Посада</th>
+                    {% if can_edit %}
                     <th class="text-end">Дії</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -26,13 +28,15 @@
                 <tr>
                     <td class="fw-semibold">{{ person.full_name }}</td>
                     <td>{{ person.get_position_display|default:"-" }}</td>
+                    {% if can_edit %}
                     <td class="text-end">
                         <a href="{% url 'person_restore' person.pk %}" class="btn btn-sm btn-success">Відновити</a>
                     </td>
+                    {% endif %}
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="3" class="text-center py-4 text-secondary">Неактивні особи не знайдені.</td>
+                    <td colspan="{% if can_edit %}3{% else %}2{% endif %}" class="text-center py-4 text-secondary">Неактивні особи не знайдені.</td>
                 </tr>
                 {% endfor %}
             </tbody>

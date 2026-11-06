@@ -33,7 +33,9 @@
                     <th>Інвентарний номер</th>
                     <th>Марка</th>
                     <th>Розташування</th>
+                    {% if can_edit %}
                     <th class="text-end">Дії</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -44,14 +46,16 @@
                     <td>{{ machine.inventory_number }}</td>
                     <td>{{ machine.brand|default:"-" }}</td>
                     <td>{{ machine.location|default:"-" }}</td>
+                    {% if can_edit %}
                     <td class="text-end">
                         <a href="{% url 'machine_restore' machine.pk %}" class="btn btn-sm btn-success">Відновити</a>
                         <a href="{% url 'machine_delete' machine.pk %}" class="btn btn-sm btn-danger">Видалити</a>
                     </td>
+                    {% endif %}
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center py-4 text-secondary">
+                    <td colspan="{% if can_edit %}6{% else %}5{% endif %}" class="text-center py-4 text-secondary">
                         Неактивні машини не знайдені.
                     </td>
                 </tr>

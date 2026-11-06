@@ -183,8 +183,10 @@
         <a href="{% url 'monthly_schedule_print' %}?year={{ selected_year }}&month={{ selected_month }}{% if selected_machine %}&machine={{ selected_machine }}{% endif %}" class="btn btn-outline-dark" target="_blank">Друк</a>
         <a href="{% url 'yearly_schedule' %}?year={{ selected_year }}" class="btn btn-outline-secondary">Річний графік</a>
         <a href="{% url 'archive_index' %}" class="btn btn-outline-secondary">Архів</a>
-        <a href="{% url 'maintenance_plan_list' %}" class="btn btn-outline-primary">Внесення похідних даних</a>
+        <a href="{% url 'maintenance_plan_list' %}" class="btn btn-outline-primary">{% if can_edit %}Внесення похідних даних{% else %}Планові роботи{% endif %}</a>
+        {% if can_edit %}
         <a href="{{ transfer_url }}" class="btn btn-outline-warning">Сформувати місяць</a>
+        {% endif %}
     </div>
 </div>
 
@@ -235,12 +237,12 @@
                         <td>{{ row.repair_types }}</td>
                         {% for cell in row.cells %}
                         <td
-                            class="text-center schedule-cell {% if cell.create_url %}schedule-cell-active{% endif %} {{ cell.status_class }}"
+                            class="text-center schedule-cell {% if cell.create_url and can_edit %}schedule-cell-active{% endif %} {{ cell.status_class }}"
                             data-machine="{{ row.machine.inventory_number }}"
                             data-day="{{ cell.day }}"
                             title="{{ cell.title }}"
                         >
-                            {% if cell.create_url %}
+                            {% if cell.create_url and can_edit %}
                             <a href="{{ cell.create_url }}" class="schedule-cell-link" aria-label="Запланувати роботу на {{ cell.day }} число для {{ row.machine.name }}"></a>
                             {% endif %}
                             <div class="schedule-cell-content d-flex flex-column align-items-center justify-content-center gap-1">
@@ -248,6 +250,7 @@
                                 {% for entry in cell.entries %}
                                 <div class="schedule-entry d-flex flex-column align-items-center gap-1">
                                     <span class="schedule-entry-code">{{ entry.code }}</span>
+                                    {% if can_edit %}
                                     <div class="schedule-entry-actions">
                                         {% if entry.done_url and entry.can_mark_done %}
                                         <a
@@ -270,6 +273,7 @@
                                         </a>
                                         {% endif %}
                                     </div>
+                                    {% endif %}
                                 </div>
                                 {% endfor %}
                                 {% else %}
@@ -297,6 +301,7 @@
     </div>
 </div>
 
+{% if can_edit %}
 <div class="card shadow-sm mt-3">
     <div class="card-body py-2">
         <div class="schedule-legend text-secondary">
@@ -304,6 +309,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 <script>
     (function () {
         const wrapper = document.querySelector(".schedule-table-wrapper");

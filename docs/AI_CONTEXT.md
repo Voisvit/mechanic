@@ -139,7 +139,7 @@ mechanic/
 
 1. `part_create` бере `next` без `get_safe_next_url()` — відкритий редирект.
 2. `maintenance_log_delete` не повертає пов'язаний план у `planned` після видалення запису.
-3. `layout.html` — «Вітаю Валентин!» захардкоджено замість імені користувача.
+3. `layout.html` — «Вітаємо, Валентине!» захардкоджено для всіх користувачів із правом змін.
 4. `yearly_schedule` і `yearly_schedule_print` майже повністю дублюють код;
    є мертві перевірки `"... not in locals()"` у views.
 5. `ensure_repair_maintenance_type()` пише в БД при кожному створенні форми журналу.

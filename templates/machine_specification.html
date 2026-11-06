@@ -10,9 +10,11 @@
     </div>
     <div class="d-flex gap-2">
         <a href="{{ back_url }}" class="btn btn-outline-secondary">Назад</a>
+        {% if can_edit %}
         <a href="{% url 'machine_specification_edit' machine.pk %}" class="btn btn-outline-primary">Редагувати ТТХ</a>
         <a href="{% url 'machine_part_create' machine.pk %}" class="btn btn-success">Прив'язати запчастину</a>
         <a href="{% url 'part_create' %}?next={% url 'machine_part_create' machine.pk %}" class="btn btn-outline-dark">Створити запчастину</a>
+        {% endif %}
         <a href="{% url 'machine_analytics' machine.pk %}" class="btn btn-outline-secondary">Аналітика</a>
         <a href="{% url 'machine_detail' machine.pk %}" class="btn btn-dark">Справа машини</a>
     </div>
@@ -91,7 +93,9 @@
                                 <th>Одиниця</th>
                                 <th>Кількість</th>
                                 <th>Опис</th>
+                                {% if can_edit %}
                                 <th class="text-end">Дії</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -101,6 +105,7 @@
                                 <td>{{ machine_part.part.unit }}</td>
                                 <td>{{ machine_part.quantity }}</td>
                                 <td>{{ machine_part.part.description|default:"-" }}</td>
+                                {% if can_edit %}
                                 <td class="text-end">
                                     <a
                                         href="{% url 'machine_part_delete' machine.pk machine_part.pk %}"
@@ -109,6 +114,7 @@
                                         Видалити
                                     </a>
                                 </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         </tbody>

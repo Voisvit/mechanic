@@ -35,7 +35,9 @@
             <button type="submit" class="btn btn-dark">Знайти</button>
         </form>
         <a href="{% url 'inactive_equipment' %}" class="btn btn-outline-secondary">Неактивні машини{% if inactive_count %} ({{ inactive_count }}){% endif %}</a>
+        {% if can_edit %}
         <a href="{% url 'machine_create' %}" class="btn btn-success">Додати машину</a>
+        {% endif %}
     </div>
 </div>
 
