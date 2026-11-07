@@ -41,6 +41,13 @@ if not SECRET_KEY:
     SECRET_KEY = "dev-only-insecure-secret-key-change-me"
 
 ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", default="127.0.0.1,localhost,testserver")
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS")
+
+# HTTPS завершує reverse proxy (Caddy); Django має бути доступний лише з loopback.
+if env_bool("BEHIND_HTTPS_PROXY"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 PORT = int(os.getenv("PORT", "8001"))
 
@@ -134,6 +141,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
