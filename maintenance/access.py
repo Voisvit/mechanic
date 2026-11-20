@@ -36,8 +36,10 @@ def can_view_parts_usage_report(user):
     return (
         user.is_authenticated
         and user.is_active
-        and user.username in {"nachalnyk", "holmekh"}
-        and is_read_only(user)
+        and (
+            (user.username in {"nachalnyk", "holmekh"} and is_read_only(user))
+            or (user.username == "Tur" and not is_read_only(user))
+        )
     )
 
 
