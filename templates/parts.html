@@ -41,7 +41,10 @@
         </select>
         <button type="submit" class="btn btn-dark">Фільтрувати</button>
     </form>
-    <div class="d-flex gap-2">
+    <div class="d-flex flex-wrap gap-2">
+        {% if can_view_parts_usage_report %}
+        <a href="{% url 'parts_usage_report' %}" class="btn btn-outline-primary">Використано за період</a>
+        {% endif %}
         {% if can_edit %}
         <a href="{% url 'part_create' %}" class="btn btn-success">Створити запчастину</a>
         {% endif %}
