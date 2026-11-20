@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch, Q, Sum
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -25,6 +25,7 @@ from .forms import (
     MaintenancePlanForm,
     PartAnalyticalMappingFormSet,
     PartForm,
+    PartsUsageReportForm,
     PersonForm,
 )
 from .models import (
@@ -1039,6 +1040,74 @@ def machine_specification(request, pk):
             specification=specification,
             machine_parts=machine_parts,
             back_url=reverse("machine_detail", kwargs={"pk": machine.pk}),
+        ),
+    )
+
+
+def parts_usage_report(request):
+    today = timezone.localdate()
+    # Лише перше відкриття отримує поточний місяць; неповний GET є помилкою.
+    if "date_from" in request.GET or "date_to" in request.GET:
+        period_data = request.GET
+    else:
+        period_data = {
+            "date_from": today.replace(day=1).isoformat(),
+            "date_to": today.replace(day=calendar.monthrange(today.year, today.month)[1]).isoformat(),
+        }
+    form = PartsUsageReportForm(period_data)
+    report_rows = []
+    period_label = ""
+    if form.is_valid():
+        date_from = form.cleaned_data["date_from"]
+        date_to = form.cleaned_data["date_to"]
+        period_label = f"{date_from:%d.%m.%Y} — {date_to:%d.%m.%Y}"
+        usages = (
+            MaintenanceLogPartUsage.objects.filter(
+                maintenance_log__performed_date__range=(date_from, date_to)
+            )
+            .values(
+                "part_id", "part__name", "part__unit", "part__description",
+                "maintenance_log__machine_id", "maintenance_log__machine__name",
+                "maintenance_log__machine__technological_number",
+                "maintenance_log__machine__inventory_number",
+            )
+            .annotate(total_quantity=Sum("quantity"))
+            .order_by(
+                "part__name", "part__unit", "part__description",
+                "maintenance_log__machine__name",
+                "maintenance_log__machine__technological_number",
+                "maintenance_log__machine__inventory_number",
+            )
+        )
+        rows_by_part = {}
+        for usage in usages:
+            part_id = usage["part_id"]
+            if part_id not in rows_by_part:
+                row = {
+                    "name": usage["part__name"],
+                    "unit": usage["part__unit"],
+                    "description": usage["part__description"],
+                    "total_quantity": Decimal("0"),
+                    "machines": [],
+                }
+                rows_by_part[part_id] = row
+                report_rows.append(row)
+            row = rows_by_part[part_id]
+            row["total_quantity"] += usage["total_quantity"]
+            row["machines"].append({
+                "name": usage["maintenance_log__machine__name"],
+                "technological_number": usage["maintenance_log__machine__technological_number"],
+                "inventory_number": usage["maintenance_log__machine__inventory_number"],
+                "quantity": usage["total_quantity"],
+            })
+    return render(
+        request,
+        "parts_usage_report.html",
+        build_context(
+            "Використано запчастин і матеріалів",
+            form=form,
+            report_rows=report_rows,
+            period_label=period_label,
         ),
     )
 

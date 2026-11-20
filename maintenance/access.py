@@ -32,5 +32,27 @@ def protected(view):
     return login_required(wrapped)
 
 
+def can_view_parts_usage_report(user):
+    return (
+        user.is_authenticated
+        and user.is_active
+        and user.username in {"nachalnyk", "holmekh"}
+        and is_read_only(user)
+    )
+
+
+def parts_usage_report_required(view):
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not can_view_parts_usage_report(request.user):
+            raise PermissionDenied
+        return view(request, *args, **kwargs)
+
+    return login_required(wrapped)
+
+
 def access_context(request):
-    return {"can_edit": not is_read_only(request.user)}
+    return {
+        "can_edit": not is_read_only(request.user),
+        "can_view_parts_usage_report": can_view_parts_usage_report(request.user),
+    }

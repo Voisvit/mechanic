@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Використано запчастин і матеріалів</h1>
+<p class="text-secondary">Фактично використані запчастини та матеріали за датами виконаних робіт.</p>
+
+<form method="get" class="row g-3 align-items-end mb-4">
+    {% for field in form %}
+    <div class="col-sm-5 col-lg-3">
+        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}
+        <div class="text-danger small mt-1">{{ error }}</div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+    <div class="col-sm-auto"><button type="submit" class="btn btn-dark">Показати</button></div>
+</form>
+
+{% if form.errors %}
+<div class="alert alert-danger" role="alert">
+    {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+    Вкажіть коректні дати початку та завершення періоду. Звіт не сформовано.
+</div>
+{% else %}
+<p class="fw-semibold">Період: {{ period_label }}</p>
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Запчастина / матеріал</th>
+                    <th>Од. виміру</th>
+                    <th class="text-end">Загалом</th>
+                    <th>Обладнання</th>
+                    <th class="text-end">Кількість</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in report_rows %}
+                    {% for machine in row.machines %}
+                    <tr>
+                        {% if forloop.first %}
+                        <td rowspan="{{ row.machines|length }}" class="fw-semibold">
+                            {{ row.name }}
+                            {% if row.description %}<div class="small text-secondary fw-normal">{{ row.description }}</div>{% endif %}
+                        </td>
+                        <td rowspan="{{ row.machines|length }}">{{ row.unit }}</td>
+                        <td rowspan="{{ row.machines|length }}" class="text-end fw-semibold">{{ row.total_quantity|floatformat:"-3" }}</td>
+                        {% endif %}
+                        <td>
+                            {{ machine.name }}
+                            {% if machine.technological_number %}<span class="text-secondary"> — {{ machine.technological_number }}</span>
+                            {% elif machine.inventory_number %}<span class="text-secondary"> ({{ machine.inventory_number }})</span>{% endif %}
+                        </td>
+                        <td class="text-end">{{ machine.quantity|floatformat:"-3" }}</td>
+                    </tr>
+                    {% endfor %}
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-secondary py-4">За вибраний період використання запчастин і матеріалів не зафіксовано.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

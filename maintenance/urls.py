@@ -19,7 +19,7 @@ from django.contrib.auth.views import LoginView
 from django.urls import path
 
 from . import views
-from .access import protected, readable
+from .access import parts_usage_report_required, protected, readable
 
 handler403 = views.permission_denied
 
@@ -58,6 +58,7 @@ urlpatterns = [
     path('archive/<int:year>/', readable(views.archive_year), name='archive_year'),
     path('archive/<int:year>/<int:month>/', readable(views.archive_month), name='archive_month'),
     path('parts/', readable(views.parts), name='parts'),
+    path('reports/parts-usage/', parts_usage_report_required(views.parts_usage_report), name='parts_usage_report'),
     path('parts/add/', protected(views.part_create), name='part_create'),
     path('parts/<int:pk>/edit/', protected(views.part_update), name='part_update'),
     path('parts/<int:pk>/delete/', protected(views.part_delete), name='part_delete'),

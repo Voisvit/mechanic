@@ -32,6 +32,9 @@
                     <li class="nav-item"><a class="nav-link" href="{% url 'equipment' %}">Обладнання</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'archive_index' %}">Архів</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'parts' %}">Запчастини</a></li>
+                    {% if can_view_parts_usage_report %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'parts_usage_report' %}">Використано запчастин і матеріалів</a></li>
+                    {% endif %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'references' %}">Відповідальні особи</a></li>
                 </ul>
                 {% if request.user.is_authenticated %}

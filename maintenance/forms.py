@@ -58,6 +58,27 @@ class BootstrapMixin:
                 widget.attrs["class"] = "form-control"
 
 
+class PartsUsageReportForm(BootstrapMixin, forms.Form):
+    date_from = forms.DateField(
+        label="Дата від",
+        input_formats=["%Y-%m-%d"],
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+    )
+    date_to = forms.DateField(
+        label="Дата до",
+        input_formats=["%Y-%m-%d"],
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        date_from = cleaned_data.get("date_from")
+        date_to = cleaned_data.get("date_to")
+        if date_from and date_to and date_from > date_to:
+            raise forms.ValidationError("«Дата від» не може бути пізнішою за «Дата до».")
+        return cleaned_data
+
+
 class MachineForm(BootstrapMixin, forms.ModelForm):
     class Meta:
         model = Machine
