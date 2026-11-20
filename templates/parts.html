@@ -60,7 +60,10 @@
         <table class="table table-hover align-middle mb-0 sticky-table">
             <thead class="table-light">
                 <tr>
-                    <th class="text-center" title="Вибрати для експорту в Excel">Експорт</th>
+                    <th class="text-center" title="Вибрати для експорту в Excel">
+                        <input type="checkbox" class="form-check-input" id="parts-select-all" {% if not part_rows %}disabled{% endif %}>
+                        <label for="parts-select-all">Виділити все</label>
+                    </th>
                     <th>№</th>
                     <th>ID</th>
                     <th>Назва запчастини / агрегату</th>
@@ -118,4 +121,24 @@
         </table>
     </div>
 </div>
+<script>
+    (function () {
+        const selectAll = document.getElementById("parts-select-all");
+        const checkboxes = Array.from(selectAll.closest("table").querySelectorAll('tbody input[name="part_ids"]'));
+
+        function updateSelectAll() {
+            const selectedCount = checkboxes.filter(function (checkbox) { return checkbox.checked; }).length;
+            selectAll.checked = checkboxes.length > 0 && selectedCount === checkboxes.length;
+            selectAll.indeterminate = selectedCount > 0 && selectedCount < checkboxes.length;
+        }
+
+        selectAll.addEventListener("change", function () {
+            checkboxes.forEach(function (checkbox) { checkbox.checked = selectAll.checked; });
+            updateSelectAll();
+        });
+        checkboxes.forEach(function (checkbox) { checkbox.addEventListener("change", updateSelectAll); });
+        window.addEventListener("pageshow", updateSelectAll);
+        updateSelectAll();
+    })();
+</script>
 {% endblock %}

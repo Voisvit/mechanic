@@ -916,7 +916,7 @@ def maintenance_log_create(request, pk):
                 usage_formset.instance = maintenance_log
                 usage_formset.save()
                 sync_maintenance_log_plan(maintenance_log)
-            return redirect(return_url or detail_url)
+            return redirect(back_url)
     else:
         initial = {"performed_date": timezone.localdate()}
         maintenance_type_id = request.GET.get("maintenance_type")
@@ -971,7 +971,7 @@ def maintenance_log_update(request, pk, log_pk):
                 maintenance_log = form.save()
                 usage_formset.save()
                 sync_maintenance_log_plan(maintenance_log, previous_plan_id)
-            return redirect(return_url or detail_url)
+            return redirect(back_url)
     else:
         form = MaintenanceLogForm(instance=maintenance_log, machine=machine)
         usage_formset = MaintenanceLogPartUsageFormSet(instance=maintenance_log, prefix="used_parts")
